@@ -2,17 +2,24 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define TIME_SLICES 200
-#define X_AXE_SLICES 10
-#define T 1.0
+#define TIME_SLICES 25*200 
+#define X_AXE_SLICES 50
+#define T 1
 
-void print_matrix(double **A, int M, int N){
+void print_matrix(char *file_name, double **A, int M, int N){
+    FILE *file;
     int i, j;
+
+    file = fopen(file_name, "w");
+
     for(i = 0; i < M + 1; i++){
-        for(j = 0; j < N + 1; j++)
-            printf("%lf ", A[i][j]);
-        printf("\n");
+        for(j = 0; j < N + 1; j++) {
+            fprintf(file, "%lf ", A[i][j]);
+        }
+        fprintf(file, "\n");
     }
+
+    fclose(file);
 
     return;
 }
@@ -175,10 +182,20 @@ int main(int argc, char **argv)
 
     max_eps = test_answer(Y, U, M, N);
 
-    //printf("max eps: %lf\n", max_eps);
-    print_matrix(Y, M, N);
-
-    /* deallocation */
+    printf("max eps: %lf\n", max_eps);
+    
+    switch (argc) {
+        case 3:
+            print_matrix(argv[2], U, M, N);
+            /* no break */
+        case 2:
+            print_matrix(argv[1], Y, M, N);
+            /* no break */
+        default:
+            break;
+    }
+    
+    /* deallocation memory */
     for(i = 0; i < M + 1; i++){
         free(Y[i]);
         free(U[i]);
