@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define TIME_SLICES 25*200 
-#define X_AXE_SLICES 50
-#define T 1
+#define TIME_SLICES 200 
+#define X_AXE_SLICES 10
+#define T 1.0
 
+/* print matrix A(M,N) in file file_name */
 void print_matrix(char *file_name, double **A, int M, int N){
     FILE *file;
     int i, j;
@@ -23,8 +24,6 @@ void print_matrix(char *file_name, double **A, int M, int N){
 
     return;
 }
-
-
 
 /* from test function */
 double start_condition(double x)
@@ -47,8 +46,8 @@ double right_border_condition(double t)
 /* from test function */
 double heat_source_function(double x, double t)
 {
-    return - 4.0 * (x - 0.5) * (x - 0.5) \
-                * exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/;
+	return 4 * x * (1 - x) \
+				* exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/;
 }
 
 /* from test function */
@@ -141,13 +140,15 @@ double test_answer(\
                 )
 {
     double max_eps = 0.0;
+    double local_eps;
     int i, k;
 
-    for(k = 0; k < M + 1; k++)
+    for(k = 0; k < M + 1; k++){
         for(i = 0; i < N + 1; i++){
-            if (abs(Y[k][i] - U[k][i]) > max_eps)
-                max_eps = abs(Y[k][i] - U[k][i]);
+        	local_eps = fabs(Y[k][i] - U[k][i]);
+        	max_eps = (max_eps > local_eps ? max_eps : local_eps);
         }
+    }
 
     return max_eps;
 }
