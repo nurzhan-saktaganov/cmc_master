@@ -58,13 +58,18 @@ double analytical_solution(double x, double t)
 	return exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/ ;
 }
 
+double mu_function(double x, double t)
+{
+	return 1.0;
+}
+
 /* task realization */
 void implicit_method( \
 						double **Y /* Y[t][x], Y[t][x] instead of Y[x][t] for better memory alignment */, \
 						int M, /* time slices */ \
 						int N, /* x-axe slices */ \
 						double time /* T */, \
-						double mu, \
+						double (* mu)(double /*x*/, double /*t*/), \
 						double (* start_condition)(double /*x*/), \
 						double (* left_border_condition)(double /*t*/), \
 						double (* right_border_condition)(double /*t*/), \
@@ -74,14 +79,15 @@ void implicit_method( \
 	double dh, dt;
 	double x, t;
 	int i, k;
-	double lambda;
+	double alfa;
 	/* for tridiagonal algorithm */
 	double *a, *b, *c, *y, *f;
+	double x_l, x_r; /*x left, x right */
 
 	/* init variables */
 	dh = 1.0 / N;
 	dt = time / M;
-	lambda = dh * dh / (mu * dt);
+	alfa = dh * dh / dt;
 
 	/* We have N + 1 points, and N - 1 of them is inner */
 	a = (double *) malloc((N - 1) * sizeof(double));
@@ -103,25 +109,25 @@ void implicit_method( \
 		Y[k][N] = right_border_condition(t);
 	}
 
-	/* init 'tridiagonal' matrix */
-	for(i = 0; i < N - 1; i++){
-		a[i] = -1.0;
-		b[i] = 2 + lambda;
-		c[i] = -1.0;
-	}
-
-	a[0] = 0.0;
-	c[N - 2] = 0.0;
-
 	for(k = 1; k < M + 1; k++){
 		t = k * dt;
+
 		for(i = 1; i < N ; i++){
 			x = i * dh;
-			f[i - 1] = lambda * (Y[k - 1][i] + dt * heat_source_function(x, t));
+			x_l = dh / 2.0 * (2 * i - 1);
+			x_r = dh / 2.0 * (2 * i + 1);
+
+			a[i - 1] = -mu(x_l, t);
+			b[i - 1] = alfa + mu(x_r, t) + mu(x_l, t);
+			c[i - 1] = -mu(x_r, t);
+			f[i - 1] = alfa * (Y[k - 1][i] + dt * heat_source_function(x, t));
 		}
 
-		f[0] += Y[k][0] /* left_border_condition(t)*/;
-		f[N - 2] += Y[k][N]/*right_border_condition(t) */;
+		a[0] = 0.0;
+		c[N - 2] = 0.0;
+
+		f[0] += mu(dh / 2.0, t) * Y[k][0] /* left_border_condition(t)*/;
+		f[N - 2] += mu((2 * N - 1) * dh / 2.0, t) * Y[k][N]/*right_border_condition(t) */;
 
 		tridiagonal(a, b, c, y, f, N - 1);
 		
@@ -205,7 +211,8 @@ int main(int argc, char **argv)
 		U[i] = (double *) calloc(N + 1, sizeof(double));
 	}
 
-	implicit_method(Y, M, N, /*T=*/T, /*mu=*/1.0, \
+	implicit_method(Y, M, N, /*T=*/T, \
+					mu_function, \
 					start_condition, \
 					left_border_condition, \
 					right_border_condition, \
