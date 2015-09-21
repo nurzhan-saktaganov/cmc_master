@@ -56,13 +56,19 @@ double analytical_solution(double x, double t)
 	return exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/ ;
 }
 
+/* from test function */
+double mu_function(double x, double t)
+{
+	return 1.0;
+}
+
 /* task realization */
 void explicit_method( \
 						double **Y /* Y[t][x], Y[t][x] instead of Y[x][t] for better memory alignment */, \
 						int M, /* time slices */ \
 						int N, /* x-axe slices */ \
 						double time /* T */, \
-						double mu, \
+						double (* mu)(double /*x*/, double /*t*/), \
 						double (* start_condition)(double /*x*/), \
 						double (* left_border_condition)(double /*t*/), \
 						double (* right_border_condition)(double /*t*/), \
@@ -73,11 +79,12 @@ void explicit_method( \
 	double x, t;
 	int i, k;
 	double alfa;
+	double x_l, x_r; /* x_l - x left, x_r - x right */
 
 	/* init variables */
 	dh = 1.0 / N;
 	dt = time / M;
-	alfa = (dt / (dh * dh)) * mu;
+	alfa = dt / (dh * dh);
 
 	/* init start condition */
 	for(i = 0; i < N + 1; i++){
@@ -93,14 +100,21 @@ void explicit_method( \
 	}
 
 	/* calculate inner values */
-	for(k = 0; k < M; k++)
+	for(k = 0; k < M; k++) {
 		for(i = 1; i < N; i++){
 			t = k * dt;
 			x = i * dh;
+			x_l = dh / 2.0 * (2 * i - 1);
+			x_r = dh / 2.0 * (2 * i + 1);
 			Y[k + 1][i] = Y[k][i] \
-							+ alfa * (Y[k][i + 1] - 2 * Y[k][i] + Y[k][i - 1]) \
+							+ alfa * ( \
+										mu(x_r, t) * Y[k][i + 1] \
+										- ( mu(x_r, t) + mu(x_l, t)) * Y[k][i] \
+										+ mu(x_l, t) * Y[k][i - 1] \
+									) \
 							+ dt * heat_source_function(x, t);
 		}
+	}
 
 	return;
 }
@@ -173,7 +187,8 @@ int main(int argc, char **argv)
 		U[i] = (double *) calloc(N + 1, sizeof(double));
 	}
 
-	explicit_method(Y, M, N, /*T=*/T, /*mu=*/1.0, \
+	explicit_method(Y, M, N, /*T=*/T, \
+					mu_function, \
 					start_condition, \
 					left_border_condition, \
 					right_border_condition, \
