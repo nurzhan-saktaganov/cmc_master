@@ -1,29 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "aux.h"
+#include "methods.h"
 
-#define TIME_SLICES 200 
+#define TIME_SLICES 400
 #define X_AXE_SLICES 10
 #define T 1.0
-
-/* print matrix A(M,N) in file file_name */
-void print_matrix(char *file_name, double **A, int M, int N){
-	FILE *file;
-	int i, j;
-
-	file = fopen(file_name, "w");
-
-	for(i = 0; i < M + 1; i++){
-		for(j = 0; j < N + 1; j++) {
-			fprintf(file, "%lf ", A[i][j]);
-		}
-		fprintf(file, "\n");
-	}
-
-	fclose(file);
-
-	return;
-}
 
 /* from test function */
 double start_condition(double x)
@@ -46,8 +29,8 @@ double right_border_condition(double t)
 /* from test function */
 double heat_source_function(double x, double t)
 {
-	return 4 * x * (1 - x) \
-				* exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/;
+	return - (1.0 + 4 * (pow(x, 4.0) - 2 * pow(x, 2.0) - 0.5 * x + 0.1875) / (1.0 + t) ) \
+			* exp(-(x - 0.5) * (x - 0.5) - t);
 }
 
 /* from test function */
@@ -59,112 +42,7 @@ double analytical_solution(double x, double t)
 /* from test function */
 double mu_function(double x, double t)
 {
-	return 1.0;
-}
-
-/* task realization */
-void explicit_method( \
-						double **Y /* Y[t][x], Y[t][x] instead of Y[x][t] for better memory alignment */, \
-						int M, /* time slices */ \
-						int N, /* x-axe slices */ \
-						double time /* T */, \
-						double (* mu)(double /*x*/, double /*t*/), \
-						double (* start_condition)(double /*x*/), \
-						double (* left_border_condition)(double /*t*/), \
-						double (* right_border_condition)(double /*t*/), \
-						double (* heat_source_function)(double /*x*/, double /*t*/) \
-					) 
-{
-	double dh, dt;
-	double x, t;
-	int i, k;
-	double alfa;
-	double x_l, x_r; /* x_l - x left, x_r - x right */
-
-	/* init variables */
-	dh = 1.0 / N;
-	dt = time / M;
-	alfa = dt / (dh * dh);
-
-	/* init start condition */
-	for(i = 0; i < N + 1; i++){
-		x = i * dh;
-		Y[0][i] = start_condition(x);
-	}
-
-	/* init border conditions */
-	for(k = 0; k < M + 1; k++){
-		t = k * dt;
-		Y[k][0] = left_border_condition(t);
-		Y[k][N] = right_border_condition(t);
-	}
-
-	/* calculate inner values */
-	for(k = 0; k < M; k++) {
-		for(i = 1; i < N; i++){
-			t = k * dt;
-			x = i * dh;
-			x_l = dh / 2.0 * (2 * i - 1);
-			x_r = dh / 2.0 * (2 * i + 1);
-			Y[k + 1][i] = Y[k][i] \
-							+ alfa * ( \
-										mu(x_r, t) * Y[k][i + 1] \
-										- ( mu(x_r, t) + mu(x_l, t)) * Y[k][i] \
-										+ mu(x_l, t) * Y[k][i - 1] \
-									) \
-							+ dt * heat_source_function(x, t);
-		}
-	}
-
-	return;
-}
-
-/* for test */
-void fill_true_values(\
-						double **U/* U[t][x], U[t][x] instead of U[x][t] for better memory alignment */, \
-						int M, \
-						int N, \
-						double time, \
-						double (* analytical_solution)(double /*x*/, double /*t*/)\
-					)
-{
-	int i, k;
-	double x, t;
-	double dh, dt;
-
-	dt = time / M;
-	dh = 1.0 / N;
-
-	for( k = 0; k < M + 1; k++)
-		for( i = 0; i < N + 1; i++){
-			t = k * dt;
-			x = i * dh;
-			U[k][i] = analytical_solution(x, t);
-		}
-	
-	return;
-}
-
-/* max abs difference */
-double test_answer(\
-					double **Y, \
-					double **U, \
-					int M, \
-					int N \
-				)
-{
-	double max_eps = 0.0;
-	double local_eps;
-	int i, k;
-
-	for(k = 0; k < M + 1; k++){
-		for(i = 0; i < N + 1; i++){
-			local_eps = fabs(Y[k][i] - U[k][i]);
-			max_eps = (max_eps > local_eps ? max_eps : local_eps);
-		}
-	}
-
-	return max_eps;
+	return (x + 0.5) * (x + 0.5) / (1.0 + t);
 }
 
 int main(int argc, char **argv)
@@ -187,7 +65,7 @@ int main(int argc, char **argv)
 		U[i] = (double *) calloc(N + 1, sizeof(double));
 	}
 
-	explicit_method(Y, M, N, /*T=*/T, \
+	explicit_method_2(Y, M, N, /*T=*/T, \
 					mu_function, \
 					start_condition, \
 					left_border_condition, \
