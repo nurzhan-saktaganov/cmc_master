@@ -41,8 +41,8 @@ void tridiagonal(\
 		tmp = x[i - 1];
 	}
 
-	free(alfa);
 	free(beta);
+	free(alfa);
 
 	return;
 }

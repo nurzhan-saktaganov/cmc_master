@@ -18,15 +18,15 @@ def main():
     if len(sys.argv) == 2:
         pyplot.subplot(1, 1, 1)
         pyplot.pcolor(heat_map(sys.argv[1]))
-        pyplot.title('result')
+        pyplot.title('numerical')
     elif len(sys.argv) == 3:
         pyplot.subplot(1, 2, 1)
         pyplot.pcolor(heat_map(sys.argv[1]))
-        pyplot.title('result')
+        pyplot.title('numerical')
 
         pyplot.subplot(1, 2, 2)
         pyplot.pcolor(heat_map(sys.argv[2]))
-        pyplot.title('sample')
+        pyplot.title('analytical')
 
     pyplot.show()
 

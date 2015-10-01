@@ -270,6 +270,4 @@ void implicit_method_2( \
 	return;
 }
 
-
-
 #endif
