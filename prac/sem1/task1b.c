@@ -5,7 +5,7 @@
 #include "aux.h"
 #include "methods.h"
 
-#define TIME_SLICES 200
+#define TIME_SLICES 450
 #define X_AXE_SLICES 10
 #define T 1.0
 
@@ -30,8 +30,8 @@ double right_border_condition(double t)
 /* from test function */
 double heat_source_function(double x, double t)
 {
-	return 4 * x * (1 - x) \
-				* exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/;
+	return - (9 * x * x - 9 * x - 1.25)
+				* exp(-(x - 0.5) * (x - 0.5) - t);
 }
 
 /* from test function */
@@ -39,7 +39,6 @@ double analytical_solution(double x, double t)
 {
 	return exp(-(x - 0.5) * (x - 0.5) - t) /* exp(-t)*/ ;
 }
-
 
 
 int main(int argc, char **argv)
@@ -62,7 +61,7 @@ int main(int argc, char **argv)
 		U[i] = (double *) calloc(N + 1, sizeof(double));
 	}
 
-	implicit_method_1(Y, M, N, /*T=*/T, /*mu=*/1.0, \
+	implicit_method_1(Y, M, N, /*T=*/T, /*mu=*/2.25, \
 					start_condition, \
 					left_border_condition, \
 					right_border_condition, \

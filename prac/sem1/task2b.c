@@ -5,7 +5,7 @@
 #include "aux.h"
 #include "methods.h"
 
-#define TIME_SLICES 10
+#define TIME_SLICES 450
 #define X_AXE_SLICES 10
 #define T 1.0
 
