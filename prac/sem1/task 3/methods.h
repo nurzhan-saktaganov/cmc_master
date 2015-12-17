@@ -4,17 +4,14 @@
 #include <stdlib.h> 
 #include <math.h>
 #include "sweep.h"
+#include "util.h"
 
 typedef struct _ret_type {
 	double time;
 	double eps;
 } ret_type;
 
-void swap_ptrs(void **ptr1, void **ptr2);
-
 int verify(double *ctl, double *vtl, int n, double eps);
-
-double get_max(double a, double b);
 
 /*
 mu * dt < dh^2
@@ -58,13 +55,6 @@ ret_type euler_non_linear_automodel_test(
 	double epsilon,
 	double min_dt);
 
-void swap_ptrs(void **ptr1, void **ptr2)
-{
-	void *tmp_ptr = *ptr1;
-	*ptr1 = *ptr2;
-	*ptr2 = tmp_ptr;
-	return;
-}
 
 int verify(double *ctl, double *vtl, int n, double eps)
 {
@@ -76,11 +66,6 @@ int verify(double *ctl, double *vtl, int n, double eps)
 	}
 
 	return 1;
-}
-
-double get_max(double a, double b)
-{
-	return a > b ? a : b;
 }
 
 ret_type euler_explicit_automodel_test(
