@@ -9,20 +9,13 @@
 /*
 Ax = b
 */
-int gauss_method(double **A_in, double *x, double *b_in, int size)
+void gauss_method(double **A_in, double *x, double *b_in, int size)
 {
 	int i, j, k;
 	double **A, *b;
 	double coeff;
 	int column_max_ind;
 
-	
-	for (k = 0; k < size; k++){
-		if (A_in[k][k] == 0.0) {
-			return -1;
-		}
-	}
-	
 	/* creating local copy of A_in */
 	A = (double **) malloc(size * sizeof(double *));
 	for (i = 0; i < size; i++) {
@@ -50,6 +43,7 @@ int gauss_method(double **A_in, double *x, double *b_in, int size)
 			swap_double(&b[j], &b[column_max_ind]);
 		}
 
+		/* substracting one row from another */
 		for (i = j + 1; i < size; i++){
 			coeff = A[i][j] / A[j][j];
 			for (k = j; k < size; k++){
@@ -74,7 +68,7 @@ int gauss_method(double **A_in, double *x, double *b_in, int size)
 	}
 	free(A);
 
-	return 0;
+	return;
 }
 
 #endif
