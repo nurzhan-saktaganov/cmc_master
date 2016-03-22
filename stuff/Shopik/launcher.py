@@ -3,6 +3,7 @@
 
 import json
 import signal
+import run
 
 __author__ = 'Nurzhan Saktaganov'
 
@@ -29,7 +30,8 @@ def main():
         params['table'] = table_file_path
         save_params(config['parameters'], params)
         try:
-            execfile('./run.py')
+            print
+            run.main()#execfile('./run.py')
         except Exception, e:
             print e
             print 'В процессе вычисления возникла ошибка.\n' +\

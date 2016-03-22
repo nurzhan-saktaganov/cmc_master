@@ -1,5 +1,5 @@
 {
-    "parameters": "params1.json",
+    "parameters": "params.json",
     "step 3 output": "трудовые и деловые перемещения.txt",
     "step 5 output": "рекреационные перемещения_сб.txt",
     "step 6 output": "рекреационные перемещения_сб_тр.txt",

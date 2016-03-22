@@ -3,7 +3,10 @@
 
 import sys
 import json
-from math import exp
+import signal
+from math import exp, isnan
+
+import os.path
 
 __author__ = 'Nurzhan Saktaganov'
 
@@ -16,7 +19,8 @@ def main():
     info, t = split_table(table)
 
     x_new = step_3(info, t, config, params)
-    X_recr = step_4(info)
+    print
+    X_recr = step_4(info,params)
     step_5(X_recr, config)
     X_recr_tr = step_6(X_recr, config)
     X_sum = step_7(x_new, X_recr, X_recr_tr)
@@ -34,6 +38,8 @@ def load_json(file_name):
         config_string = "".join([line for line in config_file])
     return json.loads(config_string)
 
+# Используется в load_table для преобразования
+#   строки в список
 def get_row(line):
     row = line.strip().replace(',', '.').split('\t')
     try:
@@ -54,6 +60,9 @@ def load_table(file_name):
     del table[0]
 
     # Проверка таблицы на корректность
+    # т.е. проверяем что она прямоугольная
+    # и проверяем что каждая строка содержит
+    # необходимое число столбцов, и что все они числа
     for row in table:
         try:
             if len(table) != len(row) - 6:
@@ -89,6 +98,10 @@ def is_satisfy(x, x_new, accuracy):
     size = len(x)
     for i in range(size):
         for j in range(size):
+            if i == j:
+                continue
+            if isnan(x[i][j]) or isnan(x_new[i][j]):
+                raise Exception('NaN Exception')
             if abs(x[i][j] - x_new[i][j]) > accuracy:
                 return False
     return True
@@ -99,6 +112,15 @@ def save_matrix(matrix, to_file):
         for row in matrix:
             output.write('\t'.join(map(str, row)) + '\r\n')
     return
+
+# напомним, что info это словарь
+#   ключ - уникальный идентификатор района
+#   значение - это список [b, c, d, e, f]
+#       b, 0 - численность населения в районе, тыс.чел
+#       c, 1 - численность занятого населения в районе, тыс. чел
+#       d, 2 - число мест приложения труда в районе, штук
+#       e, 3 - рекреционный потенциал района, тыс. мест
+#       f, 4 - вес района, дробное число
 
 # Получаем население всего города
 def get_city_population(info):
@@ -116,7 +138,7 @@ def get_weights_sum(info):
 def get_total_work_places(info):
     return sum(map(lambda value: value[2], info.values()))
 
-
+#
 def get_A(info, params):
     size = len(info.keys())
     # cp - city population
@@ -128,18 +150,23 @@ def get_A(info, params):
 
     multiplier_1 = cp * params['c'] * params['d'] / tb
     multiplier_2 = 0.5 * 1.5 * tb * params['c'] * params['e'] / sw
-    A = [multiplier_1 * info[i][0] + multiplier_2 * info[i][4]
+    A = [multiplier_1 * info[i][1] + multiplier_2 * info[i][4]
             for i in range(size)]
     return A
 
+#
 def get_A_dividers(b, t, l):
     size = len(b)
     dividers =\
         [sum([b[j] * exp(-l * t[i][j])
                 for j in range(size)])
                     for i in range(size)]
+    #dividers = map(lambda x: max(x, 0.001) , dividers)
+    sys.stdout.write('\t\t' + str(min(dividers)) + '\r')
+    sys.stdout.flush()
     return dividers
 
+#
 def update_a(info, t, params, b):
     size = len(b)
     A = get_A(info, params)
@@ -148,6 +175,7 @@ def update_a(info, t, params, b):
     a_new = [A[i] / dividers[i] for i in range(size)]
     return a_new
 
+#
 def get_B(info, params):
     size = len(info.keys())
     # cp - city population
@@ -158,14 +186,19 @@ def get_B(info, params):
     B = [ multiplier * info[i][2] for i in range(size)]
     return B
 
+#
 def get_B_dividers(a, t, l):
     size = len(a)
     dividers =\
         [sum([a[i] * exp(-l * t[i][j])
                 for i in range(size)])
                     for j in range(size)]
+    #dividers = map(lambda x: max(x, 0.001) , dividers)
+    sys.stdout.write('\t\t\t\t\t\t' + str(min(dividers)) + '\r')
+    sys.stdout.flush()
     return dividers
 
+#
 def update_b(info, t, params, a):
     size = len(a)
     B = get_B(info, params)
@@ -192,13 +225,25 @@ def step_3(info, t, config, params):
 
     while True:
         count += 1
+        # Печатаем номер итерации
         sys.stdout.write(str(count) + '\r')
         sys.stdout.flush()
         # Подпункт c
-        a_new = update_a(info, t, params, b)
+        try:
+            a_new = update_a(info, t, params, b)
+        except Exception, e:
+            print
+            print 'in a_new'
+            raise e
+        
 
         # Подпункт d
-        b_new = update_b(info, t, params, a)
+        try:
+            b_new = update_b(info, t, params, a)
+        except Exception, e:
+            print
+            print 'in b_new'
+            raise e
 
         # Подпункт e
         x_new = [[a_new[i] * b_new[j] * exp(-l * t[i][j])
@@ -215,7 +260,10 @@ def step_3(info, t, config, params):
             x = x_new
         else:
             # Подпункт h
-            save_matrix(x_new, config['step 3 output'])
+            abspath = os.path.abspath(params['table'])
+            dirname = os.path.dirname(abspath)
+            filename = os.path.join(dirname, config['step 3 output'])
+            save_matrix(x_new, filename)
             break
     return x_new
 
@@ -228,21 +276,29 @@ def step_4(info, params):
     return X_recr
 
 def step_5(X_recr, config):
-    save_matrix(X_recr, config['step 5 output'])
+    params = load_json(config['parameters'])
+    abspath = os.path.abspath(params['table'])
+    dirname = os.path.dirname(abspath)
+    filename = os.path.join(dirname, config['step 5 output'])
+    save_matrix(X_recr, filename)
     return
 
 # Для шага 6
 # Транспонирует квадратную матрицу
 def transpose(X):
     size = len(X)
-    X_transposed = [[X[i][j]
-                        for i in range(size)]
-                            for j in range(size)]
+    X_transposed = [[X[j][i]
+                        for j in range(size)]
+                            for i in range(size)]
     return X_transposed
 
 def step_6(X_recr, config):
+    params = load_json(config['parameters'])
+    abspath = os.path.abspath(params['table'])
+    dirname = os.path.dirname(abspath)
+    filename = os.path.join(dirname, config['step 6 output'])
     X_transposed = transpose(X_recr)
-    save_matrix(X_transposed, config['step 6 output'])
+    save_matrix(X_transposed, filename)
     return X_transposed
 
 def step_7(x_new, X_recr, X_recr_tr):
@@ -253,7 +309,11 @@ def step_7(x_new, X_recr, X_recr_tr):
     return X_sum
 
 def step_8(X_sum, config):
-    save_matrix(X_sum, config['step 8 output'])
+    params = load_json(config['parameters'])
+    abspath = os.path.abspath(params['table'])
+    dirname = os.path.dirname(abspath)
+    filename = os.path.join(dirname, config['step 8 output'])
+    save_matrix(X_sum, filename)
     return
 
 def step_9(X_sum):
@@ -267,12 +327,19 @@ def step_9(X_sum):
     return intensities
 
 def step_10(intensities, config):
-    with open(config['step 10 output'], 'w') as output:
+    params = load_json(config['parameters'])
+    abspath = os.path.abspath(params['table'])
+    dirname = os.path.dirname(abspath)
+    filename = os.path.join(dirname, config['step 10 output'])
+    with open(filename, 'w') as output:
         for id, intensity in enumerate(intensities):
             output.write(str(id) + '\t' + str(intensity) + '\n')
 
 def step_11(config, params):
-    with open(config['step 11 output'], 'w') as output:
+    abspath = os.path.abspath(params['table'])
+    dirname = os.path.dirname(abspath)
+    filename = os.path.join(dirname, config['step 11 output'])
+    with open(filename, 'w') as output:
         param_names = config['input_params']
         for key in sorted(param_names.keys()):
             to_print = param_names[key] + '=' + str(params[key]) + '\n'
@@ -283,5 +350,9 @@ def good_bye(signal, frame):
     exit()
 
 if __name__ == '__main__':
-    main()
+    #try:
+        main()
+    #except Exception, e:
+    #    print
+    #    raise
     
