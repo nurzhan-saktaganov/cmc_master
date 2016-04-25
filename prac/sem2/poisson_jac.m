@@ -30,9 +30,7 @@ function Y = poisson_jac(f, g, m, eps)
     A(n, n) = -4.0;
 
     % go iterations
-    j = 0;
     while 1
-        j = j + 1;
         Y_next(1, :) = Y(1, :) * A + Y(2, :);
         for i = 2 : n - 1
             Y_next(i, :) = Y(i - 1, :) + ...
