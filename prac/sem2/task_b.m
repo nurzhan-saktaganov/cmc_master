@@ -17,4 +17,4 @@ function task_b()
 	subplot(1, 2, 2);
 	surf(y);
 	title('numerical')
-end;
+end

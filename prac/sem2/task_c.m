@@ -1,13 +1,13 @@
-function task_a()
+function task_c()
 	m = 100;
 	n = m - 1;
-	y = poisson(@f_a, @g_a, m);
+	y = poisson_jac(@f_b, @g_b, m, 0.00001);
 	h = 1 / m;
 
 	u = zeros(n, n);
 	for i= 1 : n
     	for j= 1 : n
-        	u(i, j) = u_a(i * h, j * h);
+        	u(i, j) = u_b(i * h, j * h);
     	end
 	end
 

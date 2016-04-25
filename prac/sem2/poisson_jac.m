@@ -1,10 +1,11 @@
-function Y = poisson(f, g, m)
+function Y = poisson_jac(f, g, m, eps)
 
     h = 1.0 / m;
 
     % constructing the matrices
     n = m - 1;
     Y = zeros(n);
+    Y_next = zeros(n);
     F = zeros(n);
 
     % filling the F
@@ -28,25 +29,23 @@ function Y = poisson(f, g, m)
     end;
     A(n, n) = -4.0;
 
-    % sweep
-    alpha = zeros(n);
-    beta = zeros(n, 1);
+    % go iterations
+    j = 0;
+    while 1
+        j = j + 1;
+        Y_next(1, :) = Y(1, :) * A + Y(2, :);
+        for i = 2 : n - 1
+            Y_next(i, :) = Y(i - 1, :) + ...
+                    Y(i, :) * A + Y(i + 1, :);
+        end
+        Y_next(n, :) = Y(n - 1, :) + Y(n, :) * A;
 
-    alphas = zeros(n, n, n);
-    betas = zeros(n, n);
-
-    for i = 1 : n
-        K = pinv(A + alpha);
-        alpha = -K;
-        alphas(:, :, i) = alpha;
-        beta = K * (F(i, :)' - beta); %'
-        betas(:, i) = beta;
-    end;
-
-    Y(n, :) = beta';
-    for i = n - 1 : -1 : 1
-        Y(i, :) = (alphas(:, :, i) * Y(i + 1, :)' + betas(:, i))';
-    end;
+        Y_next = (Y_next - F + 4.0 * Y) / 4.0;
+        if max(max(abs(Y_next - Y))) < eps
+           break;
+        end
+        Y = Y_next;
+    end
 
     for i = 1 : n
         for j = 1 : n
