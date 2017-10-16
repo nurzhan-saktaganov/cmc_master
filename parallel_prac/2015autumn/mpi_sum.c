@@ -3,26 +3,14 @@
 
 #include <stdlib.h>
 #include <time.h>
+#include "generate_array.h"
 
 #define ARRAY_SIZE 1024
-
-void generate_array(int *array, int size, int range)
-{
-	int i;
-	srand(time(0));
-	for (i = 0; i < size; i++){
-		array[i] = (1.0 * rand() / RAND_MAX) * range;
-	}	
-	return;
-}
 
 int main(int argc, char** argv)
 {
 	int mpi_proc_id, mpi_procs_num;
 	int *array, array_size;
-	int i;
-	long sum, local_sum;
-	int *local_array, local_array_size;
 	
 	MPI_Init(&argc, &argv);
 
@@ -37,14 +25,14 @@ int main(int argc, char** argv)
 
 	MPI_Bcast(&array_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	local_array_size = array_size / mpi_procs_num;
-	local_array = (int *) malloc(local_array_size * sizeof(int));
+	int local_array_size = array_size / mpi_procs_num;
+	int *local_array = (int *) malloc(local_array_size * sizeof(int));
 
 	MPI_Scatter(array, local_array_size, MPI_INT, local_array, 
 			local_array_size, MPI_INT, 0, MPI_COMM_WORLD);
 
-	local_sum = 0;
-	for (i = 0; i < local_array_size; i++){
+	long local_sum = 0;
+	for (int i = 0; i < local_array_size; i++){
 		local_sum += local_array[i];
 	}
 
@@ -58,11 +46,11 @@ int main(int argc, char** argv)
 
 	/* checking the result */
 	if (mpi_proc_id == 0){
-		sum = 0;
-		for (i = 0; i < array_size; i++){
+		long sum = 0;
+		for (int i = 0; i < array_size; i++){
 			sum += array[i];
 		}
-		printf("Serail sum = %ld\n", sum);
+		printf("Serial sum = %ld\n", sum);
 		free(array);
 	}
 

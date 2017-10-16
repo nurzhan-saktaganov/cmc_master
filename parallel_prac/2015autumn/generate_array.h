@@ -5,15 +5,10 @@
 
 void generate_array(int *array, int size, int range)
 {
-	int i;
-	
 	srand(time(0));
-	
-	for(i = 0; i < size; i++){
+	for(int i = 0; i < size; i++){
 		array[i] = (1.0 * rand() / RAND_MAX) * range;
-	}	
-	
-	return;
+	}
 }
 
 #endif

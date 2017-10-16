@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
+#include "generate_array.h"
 
 typedef struct _worker_param {
 	int threads_num;
@@ -11,41 +12,21 @@ typedef struct _worker_param {
 	long *local_sums;
 } worker_param;
 
-void generate_array(int *array, int size, int range)
-{
-	int i;
-	
-	srand(time(0));
-	for(i = 0; i < size; i++){
-		array[i] = (1.0 * rand() / RAND_MAX) * range;
-	}	
-	
-	return;
-}
-
 void* worker(void *arg)
 {
-	int threads_num;
-	int thread_id;
-	int array_size;
-	int *array;
-	long *local_sum;
-	int begin, end;
-	int i;
-	
 	/* init params */
-	threads_num = ((worker_param *) arg)->threads_num;
-	thread_id = ((worker_param *) arg)->thread_id;
-	array_size = ((worker_param *) arg)->array_size;
-	array = ((worker_param *) arg)->array;
-	local_sum = &(((worker_param *) arg)->local_sums[thread_id]);
+	int threads_num = ((worker_param *) arg)->threads_num;
+	int thread_id = ((worker_param *) arg)->thread_id;
+	int array_size = ((worker_param *) arg)->array_size;
+	int *array = ((worker_param *) arg)->array;
+	long *local_sum = &(((worker_param *) arg)->local_sums[thread_id]);
 	
 	*local_sum = 0;
 	
-	begin = array_size * thread_id / threads_num;
-	end = array_size * (thread_id + 1) / threads_num;
+	int begin = array_size * thread_id / threads_num;
+	int end = array_size * (thread_id + 1) / threads_num;
 	
-	for(i = begin; i < end; i++){
+	for(int i = begin; i < end; i++){
 		*local_sum += array[i];
 	}
 	
