@@ -21,7 +21,7 @@ int count_parallel_steps(std::vector<comparator>& schedule, int n);
 void print_report(std::vector<comparator> &schedule, int n);
 
 // checking functions
-void check_scheduler();
+void check_scheduler(int max_length);
 void check_schedule(std::vector<comparator>& schedule, int n);
 void init_array(int *array, int n, int bit_mask);
 bool is_sorted(int *array, int n);
@@ -29,32 +29,38 @@ void perform_schedule(std::vector<comparator>& schedule, int *array);
 
 void show_usage()
 {
-    std::cout<<"Usage: ./schedule n\n"
-            <<"\tn - fragments number"<<std::endl;
+    std::cout<<"Usage: ./schedule n [check_max_length]\n"
+            <<"\tn - fragments number\n"
+            <<"\tcheck_max_length - check up to length. optional, default 0"<<std::endl;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
+    if (argc < 2 || argc > 3) {
         show_usage();
         return 0;
     }
 
     int n;
+    int max_check_length;
 
     try {
         n = std::atoi(argv[1]);
+        max_check_length = argc == 3 ? std::atoi(argv[2]) : 0;
     } catch (std::invalid_argument) {
         show_usage();
         return 0;
     }
 
-    std::vector<comparator> schedule;
-    make_schedule(schedule, n);
-    print_report(schedule, n);
+    if (n > 1) {
+        std::vector<comparator> schedule;
+        make_schedule(schedule, n);
+        print_report(schedule, n);
+    }
 
-    int max_check_length = 24;
-    // check_scheduler(max_check_length);
+    if (max_check_length > 1) {
+        check_scheduler(max_check_length);
+    }
 
     return 0;
 }
@@ -140,6 +146,8 @@ void check_schedule(std::vector<comparator>& schedule, int n)
             exit(0);
         }
     }
+
+    delete [] array;
 }
 
 void init_array(int *array, int n, int bit_mask)
