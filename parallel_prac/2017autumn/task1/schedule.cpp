@@ -23,9 +23,8 @@ void print_report(std::vector<comparator> &schedule, int n);
 // checking functions
 void check_scheduler(int max_length);
 void check_schedule(std::vector<comparator>& schedule, int n);
-void init_array(int *array, int n, int bit_mask);
-bool is_sorted(int *array, int n);
-void perform_schedule(std::vector<comparator>& schedule, int *array);
+void init_array(std::vector<int> &array, int bit_mask);
+void perform_schedule(std::vector<comparator>& schedule, std::vector<int> &array);
 
 void show_usage()
 {
@@ -135,42 +134,31 @@ void check_scheduler(int max_length)
 
 void check_schedule(std::vector<comparator>& schedule, int n)
 {
+    std::vector<int> array(n);
+
     int up_to = 1 << n;
-    auto array = new int[n];
 
     for (int bit_mask = 0; bit_mask < up_to; ++bit_mask){
-        init_array(array, n, bit_mask);
+        init_array(array, bit_mask);
         perform_schedule(schedule, array);
-        if (!is_sorted(array, n)) {
+        if (!std::is_sorted(array.begin(), array.end())) {
             std::cerr<<"Got error for size "<<n<<std::endl;
             exit(0);
         }
     }
-
-    delete [] array;
 }
 
-void init_array(int *array, int n, int bit_mask)
+void init_array(std::vector<int> &array, int bit_mask)
 {
-    for (int i = 0; i < n; i++) {
-        array[i] = bit_mask & 1;
+    for (int &e: array) {
+        e = bit_mask & 1;
         bit_mask >>= 1;
     }
 }
 
-bool is_sorted(int *array, int n)
-{
-    for (int i = 0; i < n - 1; ++i){
-        if (array[i] > array[i + 1]) return false;
-    }
-    return true;
-}
-
-void perform_schedule(std::vector<comparator>& schedule, int *array)
+void perform_schedule(std::vector<comparator>& schedule, std::vector<int> &array)
 {
     for (comparator &c : schedule) {
-        if (array[c.a] > array[c.b]) {
-            std::swap(array[c.a], array[c.b]);
-        }
+        if (array[c.a] > array[c.b]) std::swap(array[c.a], array[c.b]);
     }
 }
