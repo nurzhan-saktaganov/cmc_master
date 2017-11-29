@@ -1,2 +1,18 @@
+CC=g++
+CFLAGS=-c -Wall -std=c++11
+LDFLAGS=
+SOURCES=main.cpp Schedule.cpp Comparator.cpp
+OBJECTS=$(SOURCES:.cpp=.o)
+EXECUTABLE=task1
+
 all:
-	g++ -Wall -std=c++11 -o schedule schedule.cpp
+	$(SOURCES) $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+.cpp.o:
+	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm -rf *.o
