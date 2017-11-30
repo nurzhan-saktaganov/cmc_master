@@ -1,6 +1,9 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#if __STDC_VERSION__ <= 201100L
+    #include <cstdlib>
+#endif
 
 #include "Schedule.hpp"
 
@@ -52,10 +55,10 @@ int main(int argc, char *argv[])
 void print_report(Schedule &schedule)
 {
     cout<<schedule.fragments()<<" 0 0"<<"\n";
-    for(auto it = schedule.begin(); it != schedule.end(); ++it){
+    for(vector<Comparator>::iterator it = schedule.begin(); it != schedule.end(); ++it){
         cout<<it->a<<" "<<it->b<<"\n";
     }
 
     cout<<schedule.comparators()<<"\n"
-        <<0<<endl;
+        <<schedule.steps()<<endl;
 }

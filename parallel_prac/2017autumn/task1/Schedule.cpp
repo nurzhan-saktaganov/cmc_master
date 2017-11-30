@@ -6,7 +6,7 @@
 
 using namespace std;
 
-Schedule::Schedule(const int n) : n(n), steps(-1)
+Schedule::Schedule(const int n) : n(n), _steps(-1)
 {
     //int hi = n > 2 ? multiple_of_4(n) : n;
     int hi = next_power_of_2(n);
@@ -39,6 +39,20 @@ int Schedule::comparators()
     return _comparators.size();
 }
 
+int Schedule::steps()
+{
+    if (_steps != -1) return _steps;
+
+    vector<int> linear_steps(n);
+
+    for (Comparator &c : _comparators) {
+        ++linear_steps[c.a];
+        ++linear_steps[c.b];
+    }
+
+    return _steps = *(max_element(linear_steps.begin(), linear_steps.end()));
+}
+
 vector<Comparator>::iterator Schedule::begin()
 {
     return _comparators.begin();
@@ -54,6 +68,11 @@ int Schedule::next_power_of_2(const int n)
     int power_of_2 = 1;
     while (power_of_2 < n) power_of_2 *= 2;
     return power_of_2;
+}
+
+int Schedule::multiple_of_4(const int n)
+{
+    return n + (4 - (n - 1) % 4 - 1);
 }
 
 void Schedule::comp_exchange(const int a, const int b)

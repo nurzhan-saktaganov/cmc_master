@@ -1,5 +1,5 @@
 CXX=g++
-CFLAGS=-Wall -std=c++11
+CFLAGS=-Wall -std=c++98
 EXECUTABLE=task1
 
 all: Comparator.o Schedule.o

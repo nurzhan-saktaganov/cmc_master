@@ -10,11 +10,13 @@ public:
     bool check();
     int fragments();
     int comparators();
+    int steps();
     vector<Comparator>::iterator begin();
     vector<Comparator>::iterator end();
 private:
 //utils
     static int next_power_of_2(const int n);
+    static int multiple_of_4(const int n);
 //build schedule
     void comp_exchange(const int a, const int b);
     void sort_schedule(const int lo, const int hi);
@@ -26,5 +28,5 @@ private:
 
     vector<Comparator> _comparators;
     const int n;
-    int steps;
+    int _steps;
 };
