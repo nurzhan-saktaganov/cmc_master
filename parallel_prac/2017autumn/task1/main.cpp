@@ -60,5 +60,5 @@ void print_report(Schedule &schedule)
     }
 
     cout<<schedule.comparators()<<"\n"
-        <<schedule.steps()<<endl;
+        <<schedule.tacts()<<endl;
 }

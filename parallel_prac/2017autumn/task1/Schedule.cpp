@@ -1,16 +1,53 @@
-#include <algorithm>
 #include <vector>
+#include <iostream>
+#include <cmath>
 
 #include "Comparator.hpp"
 #include "Schedule.hpp"
 
+#if __STDC_VERSION__ > 201100L
+#include <algorithm>
+#else
+template <class ForwardIterator>
+bool is_sorted(ForwardIterator first, ForwardIterator last)
+{
+  if (first==last) return true;
+  ForwardIterator next = first;
+  while (++next!=last) {
+    if (*next<*first) return false;
+    ++first;
+  }
+  return true;
+}
+#endif
+
+
 using namespace std;
 
-Schedule::Schedule(const int n) : n(n), _steps(-1)
+Schedule::Schedule(const int n, const int filter) : n(n), filter(filter), n_tacts(-1)
 {
-    //int hi = n > 2 ? multiple_of_4(n) : n;
-    int hi = next_power_of_2(n);
-    sort_schedule(0, hi - 1);
+    knuth_sort(n);
+}
+
+void Schedule::knuth_sort(const int n)
+{
+    int t = ceil(log2(n));
+    int p = 1 << (t - 1);
+
+    while (p > 0) {
+        int q = 1 << (t - 1);
+        int r = 0;
+        int d = p;
+        while (d > 0) {
+            for (int i = 0; i < n - d; ++i){
+                if ((i & p) == r) comp_exchange(i, i + d);
+            }
+            d = q - p;
+            q /= 2;
+            r = p;
+        }
+        p /= 2;
+    }
 }
 
 bool Schedule::check()
@@ -39,18 +76,26 @@ int Schedule::comparators()
     return _comparators.size();
 }
 
-int Schedule::steps()
+int Schedule::tacts()
 {
-    if (_steps != -1) return _steps;
+    if (n_tacts != -1) return n_tacts;
 
-    vector<int> linear_steps(n);
+    for (int track = 0; track < n; track++){
+        int current_tacts = 0;
+        int current_track = track;
 
-    for (Comparator &c : _comparators) {
-        ++linear_steps[c.a];
-        ++linear_steps[c.b];
+        vector<Comparator>::reverse_iterator rit = _comparators.rbegin();
+
+        for(; rit != _comparators.rend(); ++rit){
+            if (!rit->contains(current_track)) continue;
+            current_track = rit->get_pair(current_track);
+            current_tacts++;
+        }
+
+        if (current_tacts > n_tacts) n_tacts = current_tacts;
     }
 
-    return _steps = *(max_element(linear_steps.begin(), linear_steps.end()));
+    return n_tacts;
 }
 
 vector<Comparator>::iterator Schedule::begin()
@@ -63,56 +108,26 @@ vector<Comparator>::iterator Schedule::end()
     return _comparators.end();
 }
 
-int Schedule::next_power_of_2(const int n)
-{
-    int power_of_2 = 1;
-    while (power_of_2 < n) power_of_2 *= 2;
-    return power_of_2;
-}
-
-int Schedule::multiple_of_4(const int n)
-{
-    return n + (4 - (n - 1) % 4 - 1);
-}
-
 void Schedule::comp_exchange(const int a, const int b)
 {
-    if (b < n) _comparators.push_back(Comparator(a, b));
-}
+    if (b >= n) return;
+    if (filter >= 0 && filter != a && filter != b) return;
 
-void Schedule::sort_schedule(const int lo, const int hi)
-{
-    if (hi - lo < 1) return;
-
-    const int mid = lo + (hi - lo) / 2;
-    sort_schedule(lo, mid);
-    sort_schedule(mid + 1, hi);
-    merge_schedule(lo, hi, 1);
-}
-
-void Schedule::merge_schedule(const int lo, const int hi, const int step)
-{
-    if (hi - lo <= 2 * step) return comp_exchange(lo, lo + step);
-
-    merge_schedule(lo, hi, 2 * step);
-    merge_schedule(lo + step, hi, 2 * step);
-
-    for (int i = lo + step; i < hi - step; i += 2 * step) {
-        comp_exchange(i, i + step);
-    }
+    _comparators.push_back(Comparator(a, b));
 }
 
 void Schedule::init_array(vector<int> &array, int bit_mask)
 {
-    for (int &e: array) {
-        e = bit_mask & 1;
+    for (size_t i = 0; i < array.size(); ++i){
+        array[i] = bit_mask & 1;
         bit_mask >>= 1;
     }
 }
 
 void Schedule::perform(vector<int> &array)
 {
-    for (Comparator &c : _comparators) {
-        if (array[c.a] > array[c.b]) swap(array[c.a], array[c.b]);
+    vector<Comparator>::iterator it = _comparators.begin();
+    for(; it != _comparators.end(); ++it){
+        if (array[it->a] > array[it->b]) swap(array[it->a], array[it->b]);
     }
 }
