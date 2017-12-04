@@ -1,4 +1,5 @@
 #include <vector>
+#include <map>
 #include <iostream>
 #include <cmath>
 
@@ -31,7 +32,8 @@ Schedule::Schedule(const int n, const int filter) : n(n), filter(filter), n_tact
 
 void Schedule::knuth_sort(const int n)
 {
-    int t = ceil(log2(n));
+    int t = 1;
+    while (1 << t < n) t++;
     int p = 1 << (t - 1);
 
     while (p > 0) {
@@ -80,19 +82,22 @@ int Schedule::tacts()
 {
     if (n_tacts != -1) return n_tacts;
 
-    for (int track = 0; track < n; track++){
-        int current_tacts = 0;
-        int current_track = track;
+    map<int, int> track;
 
-        vector<Comparator>::reverse_iterator rit = _comparators.rbegin();
+    for(int i = 0; i < n; i++){
+        track[i] = 0;
+    }
 
-        for(; rit != _comparators.rend(); ++rit){
-            if (!rit->contains(current_track)) continue;
-            current_track = rit->get_pair(current_track);
-            current_tacts++;
-        }
+    vector<Comparator>::iterator it = _comparators.begin();
+    for(; it != _comparators.end(); ++it){
+        ++track[it->a];
+        ++track[it->b];
+        swap(track[it->a], track[it->b]);
+    }
 
-        if (current_tacts > n_tacts) n_tacts = current_tacts;
+    map<int, int>::iterator mit = track.begin();
+    for (; mit != track.end(); ++mit){
+        if (mit->second > n_tacts) n_tacts = mit->second;
     }
 
     return n_tacts;
