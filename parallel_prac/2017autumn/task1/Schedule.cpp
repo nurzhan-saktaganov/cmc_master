@@ -90,9 +90,8 @@ int Schedule::tacts()
 
     vector<Comparator>::iterator it = _comparators.begin();
     for(; it != _comparators.end(); ++it){
-        ++track[it->a];
-        ++track[it->b];
-        swap(track[it->a], track[it->b]);
+        const int height = max(track[it->a], track[it->b]) + 1;
+        track[it->a] = track[it->b] = height;
     }
 
     map<int, int>::iterator mit = track.begin();
