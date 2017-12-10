@@ -100,7 +100,6 @@ bool is_sorted(const int procs_num, const int rank, T *array, const int part_siz
     return sorted;
 }
 
-
 int main(int argc, char *argv[])
 {
     const int n1 = 100;
@@ -119,12 +118,14 @@ int main(int argc, char *argv[])
 
     std::sort(array, array + part_size);
 
-    //TODO create a datatype
-    MPI::Datatype datatype;
+    MPI::Datatype datatype = Point::datatype();
+    datatype.Commit();
 
     perform_schedule(schedule, r, array, part_size, datatype);
-
     const bool sorted = is_sorted(n, r, array, part_size, datatype);
+
+    datatype.Free();
+    delete [] array;
 
     if (r == 0) {
         if (sorted) {
@@ -133,8 +134,6 @@ int main(int argc, char *argv[])
             std::cout<<"Global array is not sorted :("<<std::endl;
         }
     }
-
-    delete [] array;
 
     MPI::Finalize();
 }

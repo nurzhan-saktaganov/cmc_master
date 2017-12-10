@@ -1,6 +1,8 @@
+#include <mpi.h>
 #include "Point.hpp"
 
 Point::sort_way Point::sort_by = x_way;
+MPI::Datatype Point::_datatype = MPI::DATATYPE_NULL;
 
 void Point::set_sort_way(Point::sort_way sort_by)
 {
@@ -17,4 +19,26 @@ bool Point::operator<(const Point &p) const
         return sort_by == x_way ? x < p.x : y < p.y;
     }
     return p.index == -1;
+}
+
+MPI::Datatype Point::datatype()
+{
+    if (_datatype != MPI::DATATYPE_NULL) return _datatype;
+
+    const int count = 3;
+    const int block_lengths[] = {1, 1, 1};
+
+    Point p;
+    const MPI::Aint base = MPI::Get_address(&p);
+    const MPI::Aint displacements[] = {
+        MPI::Get_address(&p.x) - base,
+        MPI::Get_address(&p.y) - base,
+        MPI::Get_address(&p.index) - base,
+    };
+
+    const MPI::Datatype types[] = {MPI::FLOAT, MPI::FLOAT, MPI::INT};
+
+    _datatype = MPI::Datatype::Create_struct(count, block_lengths, displacements, types);
+
+    return _datatype;
 }
