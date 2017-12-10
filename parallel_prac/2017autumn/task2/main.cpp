@@ -1,13 +1,10 @@
 #include <algorithm>
 #include <mpi.h>
+#include <iostream>
 
 #include "Point.hpp"
 #include "Comparator.hpp"
 #include "Schedule.hpp"
-
-float x(int i, int j);
-float y(int i, int j);
-void init_grid(Point *p, int n1, int n2, float (*x)(int, int), float (*y)(int, int));
 
 template<typename T>
 void merge_up(T *a, T *b, T *c, const int size)
@@ -38,17 +35,15 @@ void merge_down(T *a, T *b, T *c, const int size)
 }
 
 template<typename T>
-void perform_schedule(const int rank, Schedule &schedule, T *&array, MPI::Datatype datatype, const int part_size)
+void perform_schedule(Schedule &schedule, const int rank, T *&array, const int part_size, MPI::Datatype &datatype)
 {
+    T *send_buffer = array;
     T *recv_buffer = new T[part_size];
     T *merge_buffer = new T[part_size];
-    T *send_buffer = array;
-
-    int neighbour;
 
     vector<Comparator>::iterator it = schedule.begin();
     for(; it != schedule.end(); ++it){
-        neighbour = it->get_pair(rank);
+        const int neighbour = it->get_pair(rank);
         MPI::COMM_WORLD.Sendrecv(
             send_buffer, part_size, datatype, neighbour, 0,
             recv_buffer, part_size, datatype, neighbour, 0
@@ -61,9 +56,48 @@ void perform_schedule(const int rank, Schedule &schedule, T *&array, MPI::Dataty
         }
         std::swap(send_buffer, merge_buffer);
     }
+
     delete [] recv_buffer;
     delete [] merge_buffer;
+
     array = send_buffer;
+}
+
+template<typename T>
+bool is_sorted(const int procs_num, const int rank, T *array, const int part_size, MPI::Datatype &datatype)
+{
+    // Checking whether local array is sorted
+    bool local_array_sorted = true;
+    for(int i = 0; i < part_size - 1; ++i){
+        if (array[i + 1] < array[i]){
+            local_array_sorted = false;
+            break;
+        }
+    }
+
+    // Checking whether borders are sorted
+    T left_max;
+
+    const int right_neighbour = (rank + 1) % procs_num;
+    const int left_neighbour = (rank - 1) % procs_num;
+
+    MPI::COMM_WORLD.Sendrecv(
+        &array[part_size - 1], 1, datatype, right_neighbour, 0,
+        &left_max, 1, datatype, left_neighbour, 0
+    );
+
+    bool borders_sorted = true;
+    if (rank > 0 && array[0] < left_max) {
+        borders_sorted = false;
+    }
+
+    // Checking whether global array is sorted
+    const bool local_sorted = local_array_sorted && borders_sorted;
+    bool sorted;
+
+    MPI::COMM_WORLD.Allreduce(&local_sorted, &sorted, 1, MPI::BOOL, MPI::LAND);
+
+    return sorted;
 }
 
 
@@ -85,32 +119,22 @@ int main(int argc, char *argv[])
 
     std::sort(array, array + part_size);
 
-    perform_schedule(r, schedule, array, MPI::INT, part_size);
+    //TODO create a datatype
+    MPI::Datatype datatype;
+
+    perform_schedule(schedule, r, array, part_size, datatype);
+
+    const bool sorted = is_sorted(n, r, array, part_size, datatype);
+
+    if (r == 0) {
+        if (sorted) {
+            std::cout<<"Global array is sorted :)"<<std::endl;
+        } else {
+            std::cout<<"Global array is not sorted :("<<std::endl;
+        }
+    }
 
     delete [] array;
 
     MPI::Finalize();
-}
-
-
-float x(int i, int j)
-{
-    return i + j;
-}
-
-float y(int i, int j)
-{
-    return i - j;
-}
-
-void init_grid(Point *p, int n1, int n2, float (*x)(int, int), float (*y)(int, int))
-{
-    for (int i = 0; i < n1; ++i){
-        for(int j = 0; j < n2; ++j){
-            int index = i * n2 + j;
-            p[index].index = index;
-            p[index].x = x(i, j);
-            p[index].y = y(i, j);
-        }
-    }
 }
