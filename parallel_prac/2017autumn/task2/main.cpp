@@ -5,6 +5,7 @@
 #include "Point.hpp"
 #include "Comparator.hpp"
 #include "Schedule.hpp"
+#include "dhsort.hpp"
 
 template<typename T>
 void merge_up(T *a, T *b, T *c, const int size)
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
 
     Point *array = new Point[part_size];
 
-    std::sort(array, array + part_size);
+    dh_sort(array, part_size);
 
     MPI::Datatype datatype = Point::datatype();
     datatype.Commit();
@@ -136,4 +137,6 @@ int main(int argc, char *argv[])
     }
 
     MPI::Finalize();
+
+    return 0;
 }
