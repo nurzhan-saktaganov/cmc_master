@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <mpi.h>
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
 
 #include "Point.hpp"
 #include "Comparator.hpp"
@@ -117,18 +119,39 @@ int main(int argc, char *argv[])
 
     Point *array = new Point[part_size];
 
-    dh_sort(array, part_size);
+    // initialize array with random elements
+    srand(time(0));
+    for (int i = 0; i < part_size; i++) {
+        array[i].y = array[i].x = rand();
+    }
+
+    // explicit mark phantom elements' index
+    if (r == n - 1) {
+        const int phantom_elements = (n - length % n) % n;
+        for (int i = 0; i < phantom_elements; ++i){
+            array[part_size - 1 - i].index = -1;
+        }
+    }
 
     MPI::Datatype datatype = Point::datatype();
     datatype.Commit();
 
+    MPI::COMM_WORLD.Barrier();
+    double duration = -MPI::Wtime();
+
+    dh_sort(array, part_size);
     perform_schedule(schedule, r, array, part_size, datatype);
+
+    MPI::COMM_WORLD.Barrier();
+    duration += MPI::Wtime();
+
     const bool sorted = is_sorted(n, r, array, part_size, datatype);
 
     datatype.Free();
     delete [] array;
 
     if (r == 0) {
+        std::cout<<"Sorting "<<n1 * n2<<" elements on "<<n<<" processes took "<<duration<<" seconds.\n";
         if (sorted) {
             std::cout<<"Global array is sorted :)"<<std::endl;
         } else {
