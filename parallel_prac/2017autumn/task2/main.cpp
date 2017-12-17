@@ -7,7 +7,7 @@
 #include "Point.hpp"
 #include "Comparator.hpp"
 #include "Schedule.hpp"
-#include "dhsort.hpp"
+#include "dh_sort.hpp"
 
 template<typename T>
 void merge_up(T *a, T *b, T *c, const int size)

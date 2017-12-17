@@ -46,7 +46,6 @@ int main(int argc, char *argv[])
         gettimeofday(&t1, 0);
         duration1 = timedifference_microsec(t0, t1);
 
-
         gettimeofday(&t0, 0);
         heap_sort(b, size);
         gettimeofday(&t1, 0);
