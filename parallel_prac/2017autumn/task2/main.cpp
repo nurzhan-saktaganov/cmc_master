@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <omp.h>
 
 #include "Point.hpp"
 #include "Comparator.hpp"
@@ -103,10 +104,29 @@ bool is_sorted(const int procs_num, const int rank, T *array, const int part_siz
     return sorted;
 }
 
+enum errors {
+    not_enough_arguments = -1,
+    invalid_arguments    = -2,
+};
+
 int main(int argc, char *argv[])
 {
-    const int n1 = 100;
-    const int n2 = 100;
+    int n1, n2, num_threads;
+
+    if (argc < 4) return not_enough_arguments;
+
+    try {
+        n1 = atoi(argv[1]);
+        n2 = atoi(argv[2]);
+        num_threads = atoi(argv[3]);
+    } catch (invalid_argument) {
+        return invalid_arguments;
+    }
+
+    if (n1 <= 0 || n2 <= 0 || num_threads <= 0) return invalid_arguments;
+
+    omp_set_num_threads(num_threads);
+
     const int length = n1 * n2;
 
     MPI::Init(argc, argv);
