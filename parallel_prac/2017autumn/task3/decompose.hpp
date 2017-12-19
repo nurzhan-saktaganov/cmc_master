@@ -1,6 +1,6 @@
-#include <algorithm>
+#pragma once
 
-using namespace std;
+#include <algorithm>
 
 template<typename T>
 void decompose(T *a, int *domains, const int lowest_domain, const int k, const int n)
@@ -12,7 +12,7 @@ void decompose(T *a, int *domains, const int lowest_domain, const int k, const i
         return;
     }
 
-    std::sort(T, T + size);
+    std::sort(a, a + n);
 
     const int k1 = (k + 1) / 2;
     const int k2 = k - k1;
@@ -21,11 +21,4 @@ void decompose(T *a, int *domains, const int lowest_domain, const int k, const i
 
     decompose(a, domains, lowest_domain, k1, n1);
     decompose(a + n1, domains + n1, lowest_domain + k1, k2, n2);
-}
-
-
-int main(int argc, char *argv[])
-{
-
-    return 0;
 }
