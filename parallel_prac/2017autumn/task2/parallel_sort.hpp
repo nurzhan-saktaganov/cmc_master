@@ -103,10 +103,10 @@ bool is_sorted(MPI::Comm &comm, MPI::Datatype &datatype, T *array, const int par
     }
 
     // Checking whether global array is sorted
-    const bool local_sorted = local_array_sorted && borders_sorted;
-    bool sorted;
+    const int local_sorted = local_array_sorted && borders_sorted;
+    int sorted;
 
-    comm.Allreduce(&local_sorted, &sorted, 1, MPI::BOOL, MPI::LAND);
+    comm.Allreduce(&local_sorted, &sorted, 1, MPI::INT, MPI::SUM);
 
-    return sorted;
+    return sorted == procs_num;
 }
