@@ -15,43 +15,49 @@
 template<typename T>
 void merge(T *a, T *b, T *c, const int size_a, const int size_b)
 {
-#pragma omp task firstprivate(a, b, c)
-    {
-        // first half
-        const int size = (size_a + size_b) / 2;
+    const int backward = -1;
+    const int forward = 1;
+    const int parallel = size_a + size_b >= 1000;
 
-        int ia = 0, ib = 0;
+#pragma omp parallel for firstprivate(a, b, c) schedule(static, 1) if (parallel)
+    for (int task = 0; task < 2; ++task) {
+        // direction is -1 or +1, i.e. backward or forward
+        const int direction = task == 0 ? forward : backward;
 
-        for (int i = 0; i < size; ++i){
-            if (ia >= size_a) {
-                c[i] = b[ib++];
-            } else if (ib >= size_b) {
-                c[i] = a[ia++];
-            } else if (a[ia] < b[ib]) {
-                c[i] = a[ia++];
-            } else {
-                c[i] = b[ib++];
+        if (direction == forward) {
+             // first half
+            const int size = (size_a + size_b) / 2;
+
+            int ia = 0, ib = 0;
+
+            for (int i = 0; i < size; ++i){
+                if (ia >= size_a) {
+                    c[i] = b[ib++];
+                } else if (ib >= size_b) {
+                    c[i] = a[ia++];
+                } else if (a[ia] < b[ib]) {
+                    c[i] = a[ia++];
+                } else {
+                    c[i] = b[ib++];
+                }
+            }
+        } else {
+            // second half
+            int ia = size_a - 1, ib = size_b - 1;
+
+            for (int i = size_a + size_b - 1; i >= (size_a + size_b) / 2; --i){
+                if (ia < 0) {
+                    c[i] = b[ib--];
+                } else if (ib < 0) {
+                    c[i] = a[ia--];
+                } else if (b[ib] < a[ia]) {
+                    c[i] = a[ia--];
+                } else {
+                    c[i] = b[ib--];
+                }
             }
         }
     }
-#pragma omp task firstprivate(a, b, c)
-    {
-        // second half
-        int ia = size_a - 1, ib = size_b - 1;
-
-        for (int i = size_a + size_b - 1; i >= (size_a + size_b) / 2; --i){
-            if (ia < 0) {
-                c[i] = b[ib--];
-            } else if (ib < 0) {
-                c[i] = a[ia--];
-            } else if (b[ib] < a[ia]) {
-                c[i] = a[ia--];
-            } else {
-                c[i] = b[ib--];
-            }
-        }
-    }
-#pragma omp taskwait
 }
 
 template<typename T>
