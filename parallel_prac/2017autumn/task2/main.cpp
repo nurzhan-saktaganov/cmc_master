@@ -1,9 +1,11 @@
+#include <stdexcept>
 #include <algorithm>
 #include <mpi.h>
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
 #include <omp.h>
+#include <stdint.h>
 
 #include "parallel_sort.hpp"
 #include "Point.hpp"
@@ -16,29 +18,31 @@ enum errors {
 
 int main(int argc, char *argv[])
 {
-    int n1, n2, num_threads;
+    int64_t n1, n2;
+    int num_threads;
 
     if (argc < 4) return not_enough_arguments;
 
     try {
-        n1 = atoi(argv[1]);
-        n2 = atoi(argv[2]);
+        n1 = atoll(argv[1]);
+        n2 = atoll(argv[2]);
         num_threads = atoi(argv[3]);
-    } catch (invalid_argument) {
+    } catch (std::invalid_argument) {
         return invalid_arguments;
     }
 
     if (n1 <= 0 || n2 <= 0 || num_threads <= 0) return invalid_arguments;
 
     omp_set_num_threads(num_threads);
+    num_threads = omp_get_max_threads();
 
-    const int length = n1 * n2;
+    const int64_t length = n1 * n2;
 
     MPI::Init(argc, argv);
     const int n = MPI::COMM_WORLD.Get_size();
     const int r = MPI::COMM_WORLD.Get_rank();
 
-    const int part_size = length / n + (length % n > 0);
+    const int64_t part_size = length / n + (length % n > 0);
 
     Point *array = new Point[part_size];
 
@@ -63,8 +67,9 @@ int main(int argc, char *argv[])
     double duration = -MPI::Wtime();
 
     dh_sort(array, part_size);
-
-    parallel_sort(MPI::COMM_WORLD, datatype, array, part_size);
+    if (n > 1 ) {
+        parallel_sort(MPI::COMM_WORLD, datatype, array, part_size);
+    }
 
     MPI::COMM_WORLD.Barrier();
     duration += MPI::Wtime();
@@ -75,7 +80,7 @@ int main(int argc, char *argv[])
     delete [] array;
 
     if (r == 0) {
-        std::cout<<"Sorting "<<n1 * n2<<" elements on "<<n<<" processes took "<<duration<<" seconds.\n";
+        std::cout<<"Sorting "<<n1 * n2<<" elements on "<<n<<" processes ("<<num_threads<<" threads each) took "<<duration<<" seconds.\n";
         if (sorted) {
             std::cout<<"Global array is sorted :)"<<std::endl;
         } else {
