@@ -1,0 +1,2 @@
+Sorting 4800000000 elements on 128 processes (4 threads each) took 107.794 seconds.
+Global array is sorted :)
