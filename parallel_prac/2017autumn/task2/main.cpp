@@ -80,7 +80,11 @@ int main(int argc, char *argv[])
     delete [] array;
 
     if (r == 0) {
-        std::cout<<"Sorting "<<n1 * n2<<" elements on "<<n<<" processes ("<<num_threads<<" threads each) took "<<duration<<" seconds.\n";
+        std::cout<<"Sorting "<<n1 * n2<<" elements on "<<n<<" processes ("<<num_threads<<" threads each) took "<<duration<<" seconds.\n"
+            <<"sizeof(float): "<<sizeof(float)<<"\n"
+            <<"sizeof(long long): "<<sizeof(long long)<<"\n"
+            <<"sizeof(Point): "<<sizeof(Point)<<"\n";
+
         if (sorted) {
             std::cout<<"Global array is sorted :)"<<std::endl;
         } else {

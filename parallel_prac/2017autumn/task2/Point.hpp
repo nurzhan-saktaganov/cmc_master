@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdint.h>
 #include <mpi.h>
 
 class Point {
@@ -13,7 +12,7 @@ public:
     static MPI::Datatype datatype();
 
     float x, y;
-    int64_t index;
+    long long index;
 private:
     static sort_way sort_by;
     static MPI::Datatype _datatype;

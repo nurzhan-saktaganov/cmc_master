@@ -36,7 +36,7 @@ MPI::Datatype Point::datatype()
         MPI::Get_address(&p.index) - base,
     };
 
-    const MPI::Datatype types[] = {MPI::FLOAT, MPI::FLOAT, MPI::INT};
+    const MPI::Datatype types[] = {MPI::FLOAT, MPI::FLOAT, MPI::LONG_LONG};
 
     _datatype = MPI::Datatype::Create_struct(count, block_lengths, displacements, types);
 
