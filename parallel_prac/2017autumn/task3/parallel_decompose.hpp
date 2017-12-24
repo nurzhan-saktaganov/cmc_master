@@ -121,6 +121,7 @@ points_domain_t _parallel_decompose(
 
         if (i_am_sender) {
             send_buffer = new Point[procs_num];
+            for (int i = 0; i < procs_num; ++i) send_buffer[i].index = -1;
             // +1 because we send to ourself too
             memcpy(send_buffer + 1, send_points_start, count_to_send * sizeof(Point));
         }
