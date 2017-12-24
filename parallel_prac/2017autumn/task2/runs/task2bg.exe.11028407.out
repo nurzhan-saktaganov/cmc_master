@@ -1,0 +1,5 @@
+Sorting 20000000 elements on 128 processes (4 threads each) took 0.507898 seconds.
+sizeof(float): 4
+sizeof(long long): 8
+sizeof(Point): 16
+Global array is sorted :)
