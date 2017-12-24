@@ -3,6 +3,7 @@
 #include "decompose.hpp"
 #include "parallel_sort.hpp"
 
+//represents a 'vector' with given length (i.e. size) and ptr
 typedef struct _points_domain_t {
     int size;
     point_domain_t *info;
@@ -11,7 +12,7 @@ typedef struct _points_domain_t {
 points_domain_t _parallel_decompose(
     MPI::Intracomm &comm,
     MPI::Datatype &datatype,
-    Point *&points,
+    Point *points,
     int part_size,
     int k,
     int lowest_domain);
@@ -30,7 +31,8 @@ points_domain_t parallel_decompose(
     //Trying predict max recursion depth to prevent array reallocation.
     //So, we would have enough space to store new
     //elements (points) due to redistribution.
-    //We assume that every level of recursion causes at most one new element addition.
+    //We assume that every level of recursion causes at most
+    //one new fictive element addition.
     //Allocating part_size + recursion depth, we can no worry about reallocation.
     //Just increment part_size by 1.
     //Recursion depth depends from k and num_procs.
@@ -60,7 +62,7 @@ points_domain_t parallel_decompose(
 points_domain_t _parallel_decompose(
     MPI::Intracomm &comm,
     MPI::Datatype &datatype,
-    Point *&points,
+    Point *points,
     int part_size,
     int k,
     int lowest_domain)
@@ -93,24 +95,27 @@ points_domain_t _parallel_decompose(
     const int middle_index = l1 % part_size;
 
     MPI::Cartcomm new_comm;
-    int color;
+    int color; // 0 - left half, 1 - right half
     bool i_am_sender = rank == middle_proc;
     bool i_am_receiver;
     int count_to_send;
     Point *send_points_start;
 
     if (middle_proc > 0) {
+        // we have to send to left
         i_am_receiver = rank < middle_proc;
         color = rank >= middle_proc;
-        count_to_send = middle_index;
-        send_points_start = points;
+        count_to_send = middle_index; // elements in position 0, ..., middle_index-1
+        send_points_start = points; // send from begining
     } else { // middle_proc == 0
-        i_am_receiver = rank > 0;
-        color = rank > middle_index;
-        count_to_send = part_size - middle_index;
-        send_points_start = points + middle_index;
+        // no way to send to left, only to right
+        i_am_receiver = rank > middle_proc;
+        color = rank > middle_proc;
+        count_to_send = part_size - middle_index; // elements in position middle_index, ..., part_size-1
+        send_points_start = points + middle_index; // send from middle_index and so on
     }
 
+    // communicate only if required
     if (count_to_send > 0) {
         Point *send_buffer;
 
@@ -135,7 +140,7 @@ points_domain_t _parallel_decompose(
 
     if (color == 0) {
         k = k1;
-    } else {
+    } else { // color == 1
         k = k2;
         lowest_domain += k1;
     }

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "Point.hpp"
 
+//struct represents that point with given index
+//belongs to given domain
 typedef struct _point_domain_t {
     long long index;
     int domain;
