@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <mpi.h>
 
-#include "decompose.hpp"
+#include "parallel_decompose.hpp"
 
 enum errors {
     not_enough_arguments = -1,
