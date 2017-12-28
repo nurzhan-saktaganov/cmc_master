@@ -6,7 +6,7 @@
 //struct represents that point with given index
 //belongs to given domain
 typedef struct _point_domain_t {
-    long long index;
+    Point point;
     int domain;
 } point_domain_t;
 
@@ -27,7 +27,7 @@ void decompose(
     if (k == 1) {
         for (int i = 0; i < length; ++i) {
             points_domain[i].domain = lowest_domain;
-            points_domain[i].index = points[i].index;
+            points_domain[i].point = points[i];
         }
         return;
     }
