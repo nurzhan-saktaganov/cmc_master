@@ -32,11 +32,14 @@ void merge_down(T *a, T *b, T *c, const int size)
 }
 
 template<typename T>
-void perform_schedule(MPI::Comm &comm, MPI::Datatype &datatype, Schedule &schedule, const int rank, T *&array, const int part_size)
+void perform_schedule(MPI::Comm &comm, MPI::Datatype &datatype, Schedule &schedule, const int rank, T *array, const int part_size)
 {
+    T *tmp1 = new T[part_size];
+    T *tmp2 = new T[part_size];
+
     T *send_buffer = array;
-    T *recv_buffer = new T[part_size];
-    T *merge_buffer = new T[part_size];
+    T *recv_buffer = tmp1;
+    T *merge_buffer = tmp2;
 
     std::vector<Comparator>::iterator it = schedule.begin();
     for(; it != schedule.end(); ++it){
@@ -54,14 +57,16 @@ void perform_schedule(MPI::Comm &comm, MPI::Datatype &datatype, Schedule &schedu
         std::swap(send_buffer, merge_buffer);
     }
 
-    delete [] recv_buffer;
-    delete [] merge_buffer;
+    if (send_buffer != array) {
+        memcpy(array, send_buffer, part_size * sizeof(T));
+    }
 
-    array = send_buffer;
+    delete [] tmp1;
+    delete [] tmp2;
 }
 
 template<typename T>
-void parallel_sort(MPI::Comm &comm, MPI::Datatype &datatype, T *&array, const int part_size)
+void parallel_sort(MPI::Comm &comm, MPI::Datatype &datatype, T *array, const int part_size)
 {
     const int n = comm.Get_size();
     const int r = comm.Get_rank();
