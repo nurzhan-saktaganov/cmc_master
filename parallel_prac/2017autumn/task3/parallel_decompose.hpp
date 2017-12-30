@@ -15,7 +15,10 @@ points_domain_t _parallel_decompose(
     Point *points,
     int part_size,
     int k,
-    int lowest_domain);
+    int lowest_domain,
+    int *sendcounts_buffer, // for using in Scatterv
+    int *displacements_buffer // for using in Scatterv
+);
 
 int calculate_max_part_size(int procs_num, int part_size, int k);
 
@@ -38,10 +41,18 @@ points_domain_t parallel_decompose(
     //Now we can do everyting with this copy.
     //However, passed user's array will remain unchanged.
 
+    int *sendcounts_buffer = new int [procs_num];
+    int *displacements_buffer = new int [procs_num];
+
     points_domain = _parallel_decompose(
             comm, datatype, points_copy,
-            part_size, k, lowest_domain
+            part_size, k, lowest_domain,
+            sendcounts_buffer,
+            displacements_buffer
         );
+
+    delete [] sendcounts_buffer;
+    delete [] displacements_buffer;
 
     delete [] points_copy;
 
@@ -54,7 +65,10 @@ points_domain_t _parallel_decompose(
     Point *points,
     int part_size,
     int k,
-    int lowest_domain)
+    int lowest_domain,
+    int *sendcounts_buffer, // for using in Scatterv
+    int *displacements_buffer // for using in Scatterv
+)
 {
     const int procs_num = comm.Get_size();
     const int rank = comm.Get_rank();
@@ -85,46 +99,74 @@ points_domain_t _parallel_decompose(
 
     MPI::Cartcomm new_comm;
     int color; // 0 - left half, 1 - right half
-    bool i_am_sender = rank == middle_proc;
+    //bool i_am_sender = rank == middle_proc;
     bool i_am_receiver;
-    int count_to_send;
+    int send_count;
+    int recv_procs;
     Point *send_points_start;
 
     if (middle_proc > 0) {
         // we have to send to left
         i_am_receiver = rank < middle_proc;
         color = rank >= middle_proc;
-        count_to_send = middle_index; // elements in position 0, ..., middle_index-1
+        send_count = middle_index; // elements in position 0, ..., middle_index-1
         send_points_start = points; // send from begining
+        recv_procs = middle_proc;
     } else { // middle_proc == 0
         // no way to send to left, only to right
         i_am_receiver = rank > middle_proc;
         color = rank > middle_proc;
-        count_to_send = part_size - middle_index; // elements in position middle_index, ..., part_size-1
+        send_count = part_size - middle_index; // elements in position middle_index, ..., part_size-1
         send_points_start = points + middle_index; // send from middle_index and so on
+        recv_procs = procs_num - 1;
     }
 
     // communicate only if required
-    if (count_to_send > 0) {
-        // TODO fix this
-        Point *send_buffer;
-        if (i_am_sender) {
-            send_buffer = new Point[procs_num];
-            for (int i = 0; i < procs_num; ++i) send_buffer[i].index = -1;
-            // +1 because we send to ourself too
-            //memcpy(send_buffer + 1, send_points_start, count_to_send * sizeof(Point));
+    if (send_count > 0) {
+        memset(sendcounts_buffer, 0, procs_num * sizeof(int));
+        memset(displacements_buffer, 0, procs_num * sizeof(int));
+
+        int offset = middle_proc == 0;
+
+        // init sendcounts
+        for (int i = 0; i < recv_procs; ++i) {
+            sendcounts_buffer[i + offset] = send_count / recv_procs;
         }
 
-        Point received;
-        //comm.Scatter(send_buffer, 1, datatype,
-        //    &received, 1, datatype, middle_proc);
+        for (int i = 0; i < send_count % recv_procs; ++i) {
+            sendcounts_buffer[i + offset] += 1;
+        }
 
+        // init displacements
+        displacements_buffer[offset] = 0;
+        for (int i = 1; i < recv_procs; ++i) {
+            displacements_buffer[i + offset] =
+                displacements_buffer[i-1 + offset]
+                + sendcounts_buffer[i-1 + offset];
+        }
+
+        comm.Scatterv(
+            send_points_start, // we send from here
+            sendcounts_buffer,
+            displacements_buffer,
+            datatype,
+            points + part_size, // we receive to this buffer
+            sendcounts_buffer[rank], // we receive this amount of points
+            datatype,
+            middle_proc
+        );
+
+        // in all receivers indentify phantom elements
+        int recv_n = 0;
+        int phantom_elements = 0;
         if (i_am_receiver) {
-            points[part_size++] = received;
+            recv_n = send_count / recv_procs + (send_count % recv_procs > 0);
+            part_size += recv_n;
+            phantom_elements = recv_n - sendcounts_buffer[rank];
         }
 
-        if (i_am_sender) {
-            delete [] send_buffer;
+        for (int i = 0; i < phantom_elements; ++i) {
+            points[part_size-1-i].index = -1;
         }
     }
 
@@ -138,7 +180,12 @@ points_domain_t _parallel_decompose(
     new_comm = comm.Split(color, rank);
 
     Point::switch_sort_way();
-    points_domain = _parallel_decompose(new_comm, datatype, points, part_size, k, lowest_domain);
+    points_domain = _parallel_decompose(
+        new_comm, datatype, points,
+        part_size, k, lowest_domain,
+        sendcounts_buffer,
+        displacements_buffer
+    );
     Point::switch_sort_way();
 
     new_comm.Free();
