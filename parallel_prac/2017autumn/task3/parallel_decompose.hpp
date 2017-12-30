@@ -17,6 +17,7 @@ points_domain_t _parallel_decompose(
     int k,
     int lowest_domain);
 
+int calculate_max_part_size(int procs_num, int part_size, int k);
 
 points_domain_t parallel_decompose(
     MPI::Intracomm &comm,
@@ -28,26 +29,14 @@ points_domain_t parallel_decompose(
 {
     points_domain_t points_domain;
 
-    //Trying predict max recursion depth to prevent array reallocation.
-    //So, we would have enough space to store new
-    //elements (points) due to redistribution.
-    //We assume that every level of recursion causes at most
-    //one new fictive element addition.
-    //Allocating part_size + recursion depth, we can no worry about reallocation.
-    //Just increment part_size by 1.
-    //Recursion depth depends from k and num_procs.
-    //Exactly, it equals to rounded up value of log(min(k, procs_num)).
+    const int procs_num = comm.Get_size();
+    const int max_part_size = calculate_max_part_size(procs_num, part_size, k);
 
-    int min = comm.Get_size();
-    if (k < min) min = k;
-
-    int recursion_depth = 0;
-    while (min > (1 << recursion_depth)) ++recursion_depth;
+    Point *points_copy = new Point[max_part_size];
+    memcpy(points_copy, points, part_size * sizeof(Point));
 
     //Now we can do everyting with this copy.
     //However, passed user's array will remain unchanged.
-    Point *points_copy = new Point[part_size + recursion_depth];
-    memcpy(points_copy, points, part_size * sizeof(Point));
 
     points_domain = _parallel_decompose(
             comm, datatype, points_copy,
@@ -117,18 +106,18 @@ points_domain_t _parallel_decompose(
 
     // communicate only if required
     if (count_to_send > 0) {
+        // TODO fix this
         Point *send_buffer;
-
         if (i_am_sender) {
             send_buffer = new Point[procs_num];
             for (int i = 0; i < procs_num; ++i) send_buffer[i].index = -1;
             // +1 because we send to ourself too
-            memcpy(send_buffer + 1, send_points_start, count_to_send * sizeof(Point));
+            //memcpy(send_buffer + 1, send_points_start, count_to_send * sizeof(Point));
         }
 
         Point received;
-        comm.Scatter(send_buffer, 1, datatype,
-            &received, 1, datatype, middle_proc);
+        //comm.Scatter(send_buffer, 1, datatype,
+        //    &received, 1, datatype, middle_proc);
 
         if (i_am_receiver) {
             points[part_size++] = received;
@@ -155,4 +144,72 @@ points_domain_t _parallel_decompose(
     new_comm.Free();
 
     return points_domain;
+}
+
+/*      Trying predict max memory amount to prevent array reallocation.
+    So, algorithm is recursive. In worst case we have to redistribute
+    send_n := part_size-1 elements from sender. There is always only one sender
+    in each recursion step. Let's consider that the amount of receivers is recv_p.
+    It means, every receiver has to add at most ceil(send_n / recv_p) elements.
+    There are at least recv_p := n_procs / 2 receivers, we finally get new part_size
+    for each receiver: part_size := part_size + ceil(send_n / (n_procs / 2)).
+    Let's consider that we already have max recursion depth in recursion_depth variable.
+    Then we can describe algorithm in pseudocode.
+
+    def max_part_size(part_size, recursion_depth, n_procs):
+        while recursion_depth > 0:
+            send_n = part_size - 1
+            recv_p = n_procs / 2
+            part_size += ceil(send_n / recv_p)
+            n_procs = ceil(n_procs / 2)
+        return part_size
+
+    Recursion depth depends from k and n_procs.
+    Exactly, it equals to rounded up value of log(min(k, procs_num)):
+
+    recursion_depth := ceil(log(min(k, n_procs), base=2)).
+
+    But it's too roughly. So, by modelying part_size changing,
+    we can get exact value of max part size.
+    */
+int calculate_max_part_size(int procs_num, int part_size, int k)
+{
+    if (procs_num == 1 || k == 1) return part_size;
+    // searching global middle element's coordinates
+    const long long global_length = part_size * procs_num;
+    const int k1 = (k + 1) / 2;
+    const int k2 = k - k1;
+    const long long l1 = 1.0 * k1 / k * global_length;
+    //const long long l2 = global_length - l1;
+
+    const int middle_proc = l1 / part_size;
+    const int middle_index = l1 % part_size;
+
+    int procs1, procs2;
+    int p1_size, p2_size;
+    p1_size = p2_size = part_size;
+
+    if (middle_proc > 0) {
+        const int send_n = middle_index;
+        const int recv_p = middle_proc;
+        const int recv_n = send_n / recv_p + (send_n % recv_p > 0);
+        p1_size += recv_n;
+
+        procs1 = middle_proc;
+        procs2 = procs_num - procs1;
+    } else {// middle_proc == 0
+        const int send_n = part_size - middle_index;
+        const int recv_p = procs_num - 1;
+        const int recv_n = send_n / recv_p + (send_n % recv_p > 0);
+        p2_size += recv_n;
+
+        procs1 = 1;
+        procs2 = procs_num - 1;
+    }
+
+    p1_size = calculate_max_part_size(procs1, p1_size, k1);
+    p2_size = calculate_max_part_size(procs2, p2_size, k2);
+
+    part_size = p1_size > p2_size ? p1_size : p2_size;
+    return part_size;
 }

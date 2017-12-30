@@ -45,7 +45,9 @@ int main(int argc, char *argv[])
     // fill points
     srand(time(0));
     for (int counter = 0; counter < part_size; ++counter) {
-        const long long index = n * part_size + counter;
+        const long long index = r * part_size + counter;
+        if (index >= length) break;
+
         const int i = index / n2;
         const int j = index % n2;
 
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
     datatype.Commit();
 
     points_domain_t points_domain;
-    points_domain =  parallel_decompose(MPI::COMM_WORLD, datatype, points, part_size, k, 0);
+    points_domain = parallel_decompose(MPI::COMM_WORLD, datatype, points, part_size, k, 0);
 
     datatype.Free();
 
