@@ -48,8 +48,16 @@ int main(int argc, char *argv[])
 
     // initialize array with random elements
     srand(time(0));
-    for (int i = 0; i < part_size; i++) {
-        array[i].y = array[i].x = rand();
+    for (int counter = 0; counter < part_size; ++counter) {
+        const long long index = r * part_size + counter;
+        if (index >= length) break;
+
+        const int i = index / n2;
+        const int j = index % n2;
+
+        array[counter].index = index;
+        array[counter].x = i + 0.25 * (1.0 - 2.0 * rand() / RAND_MAX);
+        array[counter].y = j + 0.25 * (1.0 - 2.0 * rand() / RAND_MAX);
     }
 
     // explicit mark phantom elements' index
