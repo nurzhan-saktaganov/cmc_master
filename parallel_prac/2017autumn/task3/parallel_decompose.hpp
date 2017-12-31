@@ -99,7 +99,7 @@ points_domain_t _parallel_decompose(
 
     MPI::Cartcomm new_comm;
     int color; // 0 - left half, 1 - right half
-    //bool i_am_sender = rank == middle_proc;
+    bool i_am_sender = rank == middle_proc;
     bool i_am_receiver;
     int send_count;
     int recv_procs;
@@ -155,6 +155,11 @@ points_domain_t _parallel_decompose(
             datatype,
             middle_proc
         );
+
+        if (i_am_sender) {
+            // make sent elements phantom
+            for (int i = 0; i < send_count; ++i) send_points_start[i].index = -1;
+        }
 
         // in all receivers indentify phantom elements
         int recv_n = 0;
