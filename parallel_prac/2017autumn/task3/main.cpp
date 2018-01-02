@@ -163,9 +163,13 @@ void write_report(
 
     // Length of each line in bytes.
     const int line_width = i_w + j_w + k_w + 2 * float_digits + separators;
-    char *buffer = new char [line_width];
+    const int buff_size = 10 * (1 << 20); // 10MiB
+    char *buffer = new char [buff_size];
 
     file.Set_view(1.0L * line_width * skip_lines, MPI::CHAR, MPI::CHAR, "native", MPI::INFO_NULL);
+
+    int free_space = buff_size;
+    char *write_position = buffer;
 
     for (int counter = 0; counter < points_domain.size; ++counter) {
         Point p = points_domain.info[counter].point;
@@ -175,12 +179,24 @@ void write_report(
         const int i = p.index / n2;
         const int j = p.index % n2;
 
-        sprintf(buffer, "%*d %*d %13e %13e %*d\n",
+        if (free_space < line_width) {
+            file.Write(buffer, buff_size - free_space, MPI::CHAR);
+            free_space = buff_size;
+            write_position = buffer;
+        }
+        sprintf(write_position, "%*d %*d %*e %*e %*d\n",
                 i_w, i, j_w, j,
-                p.x, p.y,
+                float_digits, p.x,
+                float_digits, p.y,
                 k_w, domain
             );
-        file.Write(buffer, line_width, MPI::CHAR);
+
+        free_space -= line_width;
+        write_position += line_width;
+    }
+
+    if (free_space != buff_size) {
+        file.Write(buffer, buff_size - free_space, MPI::CHAR);
     }
 
     if (rank == 0) {
