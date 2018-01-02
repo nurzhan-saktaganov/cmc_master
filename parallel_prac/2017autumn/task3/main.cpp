@@ -137,7 +137,7 @@ void write_report(
     const int rank = comm.Get_rank();
 
     MPI::File file = MPI::File::Open(comm, filename,
-            MPI::MODE_CREATE || MPI::MODE_WRONLY, MPI::INFO_NULL);
+            MPI::MODE_CREATE | MPI::MODE_WRONLY, MPI::INFO_NULL);
 
     // Collect information about how many points in each process.
     int *procs_points = new int [procs_num];
@@ -167,8 +167,6 @@ void write_report(
 
     file.Set_view(1.0L * line_width * skip_lines, MPI::CHAR, MPI::CHAR, "native", MPI::INFO_NULL);
 
-    MPI::Status status;
-
     for (int counter = 0; counter < points_domain.size; ++counter) {
         Point p = points_domain.info[counter].point;
         if (p.index == -1) continue;
@@ -182,17 +180,18 @@ void write_report(
                 p.x, p.y,
                 k_w, domain
             );
-        printf("%s", buffer);
-
-        file.Write(buffer, line_width, MPI::CHAR, status);
+        file.Write(buffer, line_width, MPI::CHAR);
     }
 
     if (rank == 0) {
-        // print time and bisects
-        //for (int i = 0; i < procs_num; ++i) skip_lines += procs_points[i];
-
-        //TODO write duration
+        // print time and TODO bisected edges count
+        for (int i = 0; i < procs_num; ++i) skip_lines += procs_points[i];
+        file.Seek(1.0L * line_width * skip_lines, MPI::SEEK_SET);
+        sprintf(buffer, "%lf\n", duration);
+        file.Write(buffer, strlen(buffer), MPI::CHAR);
     }
+
+    delete [] buffer;
 
     delete [] procs_points;
 
