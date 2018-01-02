@@ -20,6 +20,18 @@ void fill_points(
     const int n2,
     Point *points);
 
+void write_report(
+    MPI::Intracomm &comm,
+    const char *filename,
+    points_domain_t points_domain,
+    const int part_size,
+    const int n1,
+    const int n2,
+    const int k,
+    double duration);
+
+int get_width(int number);
+
 int main(int argc, char *argv[])
 {
     long long n1, n2;
@@ -41,15 +53,15 @@ int main(int argc, char *argv[])
 
     MPI::Init(argc, argv);
 
-    const int n = MPI::COMM_WORLD.Get_size();
-    const int r = MPI::COMM_WORLD.Get_rank();
+    const int procs_num = MPI::COMM_WORLD.Get_size();
+    const int rank = MPI::COMM_WORLD.Get_rank();
 
     const long long length = n1 * n2;
-    const long long part_size = length / n + (length % n > 0);
+    const long long part_size = length / procs_num + (length % procs_num > 0);
 
     Point *points = new Point[part_size];
 
-    fill_points(part_size, n, r, n1, n2, points);
+    fill_points(part_size, procs_num, rank, n1, n2, points);
 
     MPI::Datatype datatype = Point::datatype();
     datatype.Commit();
@@ -66,42 +78,7 @@ int main(int argc, char *argv[])
 
     datatype.Free();
 
-    MPI::File file = MPI::File::Open(MPI::COMM_WORLD, filename,
-            MPI::MODE_CREATE || MPI::MODE_WRONLY, MPI::INFO_NULL);
-
-    // to store how many points in each process.
-    int *procs_points = new int [n];
-    {
-        int my_points = 0;
-        for (int i = 0; i < points_domain.size; ++i) {
-            if (points_domain.info[i].point.index != -1) ++my_points;
-        }
-        MPI::COMM_WORLD.Allgather(&my_points, 1, MPI::INT, procs_points, 1, MPI::INT);
-        // Now we have information how many points in each process.
-    }
-
-    int skip_lines = 0;
-    for (int i = 0; i < r; ++i) skip_lines += procs_points[i];
-
-    for (int i = 0; i < n; ++i) {
-        MPI::COMM_WORLD.Barrier();
-        if (i != r) continue;
-
-        for (int counter = 0; counter < points_domain.size; ++counter) {
-            Point p = points_domain.info[counter].point;
-            if (p.index == -1) continue;
-
-            int domain = points_domain.info[counter].domain;
-            const int i = p.index / n2;
-            const int j = p.index % n2;
-
-            cout<<i<<" "<<j<<" "<<p.x<<" "<<p.y<<" "<<domain<<"\n";
-        }
-    }
-
-    delete [] procs_points;
-
-    file.Close();
+    write_report(MPI::COMM_WORLD, filename, points_domain, part_size, n1, n2, k, duration);
 
     // release resources
     points_domain.size = 0;
@@ -144,4 +121,90 @@ void fill_points(
             points[part_size - 1 - i].index = -1;
         }
     }
+}
+
+void write_report(
+    MPI::Intracomm &comm,
+    const char *filename,
+    points_domain_t points_domain,
+    const int part_size,
+    const int n1,
+    const int n2,
+    const int k,
+    double duration)
+{
+    const int procs_num = comm.Get_size();
+    const int rank = comm.Get_rank();
+
+    MPI::File file = MPI::File::Open(comm, filename,
+            MPI::MODE_CREATE || MPI::MODE_WRONLY, MPI::INFO_NULL);
+
+    // Collect information about how many points in each process.
+    int *procs_points = new int [procs_num];
+    int my_points = 0;
+    for (int i = 0; i < points_domain.size; ++i) {
+        if (points_domain.info[i].point.index != -1) ++my_points;
+    }
+    comm.Allgather(&my_points, 1, MPI::INT, procs_points, 1, MPI::INT);
+    // Now we have information how many points in each process.
+
+    // How many lines skip before.
+    int skip_lines = 0;
+    for (int i = 0; i < rank; ++i) skip_lines += procs_points[i];
+
+    // write point info
+    // every line has format:
+    // "%d %d %f %f %d\n"
+    const int i_w = get_width(n1);
+    const int j_w = get_width(n2);
+    const int k_w = get_width(k);
+    const int float_digits = 13; // max chars: -1.348767e-01
+    const int separators = 5;
+
+    // Length of each line in bytes.
+    const int line_width = i_w + j_w + k_w + 2 * float_digits + separators;
+    char *buffer = new char [line_width];
+
+    file.Set_view(1.0L * line_width * skip_lines, MPI::CHAR, MPI::CHAR, "native", MPI::INFO_NULL);
+
+    MPI::Status status;
+
+    for (int counter = 0; counter < points_domain.size; ++counter) {
+        Point p = points_domain.info[counter].point;
+        if (p.index == -1) continue;
+
+        int domain = points_domain.info[counter].domain;
+        const int i = p.index / n2;
+        const int j = p.index % n2;
+
+        sprintf(buffer, "%*d %*d %13e %13e %*d\n",
+                i_w, i, j_w, j,
+                p.x, p.y,
+                k_w, domain
+            );
+        printf("%s", buffer);
+
+        file.Write(buffer, line_width, MPI::CHAR, status);
+    }
+
+    if (rank == 0) {
+        // print time and bisects
+        //for (int i = 0; i < procs_num; ++i) skip_lines += procs_points[i];
+
+        //TODO write duration
+    }
+
+    delete [] procs_points;
+
+    file.Close();
+}
+
+int get_width(int number)
+{
+    int width = 1;
+    while (number >= 10) {
+        number /= 10;
+        width++;
+    }
+    return width;
 }
