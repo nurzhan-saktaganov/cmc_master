@@ -1,5 +1,0 @@
-Sorting 37500000 elements on 128 processes (1 threads each) took 0.998727 seconds.
-sizeof(float): 4
-sizeof(long long): 8
-sizeof(Point): 16
-Global array is sorted :)
