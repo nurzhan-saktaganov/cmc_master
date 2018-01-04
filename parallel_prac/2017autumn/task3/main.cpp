@@ -30,16 +30,14 @@ void fill_points(
     const int n2,
     Point *points);
 
-void write_report(
+void write_result(
     MPI::Intracomm &comm,
     const char *filename,
     points_domain_t points_domain,
     const int part_size,
     const int n1,
     const int n2,
-    const int k,
-    long long cuts,
-    double duration);
+    const int k);
 
 int get_width(int number);
 
@@ -92,10 +90,14 @@ int main(int argc, char *argv[])
     // There is no more need on points.
     delete [] points;
 
+    write_result(MPI::COMM_WORLD, filename, points_domain, part_size, n1, n2, k);
+
     // Works only for p < k.
     long long cuts = count_cuts(MPI::COMM_WORLD, points_domain, n1, n2);
 
-    write_report(MPI::COMM_WORLD, filename, points_domain, part_size, n1, n2, k, cuts, duration);
+    if (rank == 0) {
+        cout<<cuts<<"\n"<<duration<<endl;
+    }
 
     // release resources
     points_domain.size = 0;
@@ -138,16 +140,14 @@ void fill_points(
     }
 }
 
-void write_report(
+void write_result(
     MPI::Intracomm &comm,
     const char *filename,
     points_domain_t points_domain,
     const int part_size,
     const int n1,
     const int n2,
-    const int k,
-    long long cuts,
-    double duration)
+    const int k)
 {
     const int procs_num = comm.Get_size();
     const int rank = comm.Get_rank();
@@ -213,14 +213,6 @@ void write_report(
 
     if (free_space != buff_size) {
         file.Write(buffer, buff_size - free_space, MPI::CHAR);
-    }
-
-    if (rank == 0) {
-        // print time and TODO bisected edges count
-        for (int i = 0; i < procs_num; ++i) skip_lines += procs_points[i];
-        file.Seek(1.0L * line_width * skip_lines, MPI::SEEK_SET);
-        sprintf(buffer, "%lld\n%lf\n", cuts, duration);
-        file.Write(buffer, strlen(buffer), MPI::CHAR);
     }
 
     delete [] buffer;
