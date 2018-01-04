@@ -78,6 +78,13 @@ points_domain_t _parallel_decompose(
     points_domain_t points_domain;
 
     if (procs_num == 1 || k == 1) { // there is no more processes or domains
+        if (k > 1) {
+            for (int i = part_size - 1; i >= 0; --i) {
+                if (points[i].index != -1) continue;
+                std::swap(points[i], points[part_size - 1]);
+                --part_size;
+            }
+        }
         points_domain.k = k;
         points_domain.procs_num = procs_num;
         points_domain.size = part_size;
@@ -160,22 +167,81 @@ points_domain_t _parallel_decompose(
             middle_proc
         );
 
-        if (i_am_sender) {
+        int receiver_part_size = 0;
+        // in all receivers indentify phantom elements
+        if (i_am_receiver) {
+            const int recv_n = send_count / recv_procs + (send_count % recv_procs > 0);
+            receiver_part_size = part_size + recv_n;
+            const int phantom_elements = recv_n - sendcounts_buffer[rank];
+
+            for (int i = 0; i < phantom_elements; ++i) {
+                points[receiver_part_size-1-i].index = -1;
+            }
+        }
+
+        const bool can_compensate = middle_proc > 0 && (procs_num - recv_procs > 1);
+
+        if (i_am_sender && !can_compensate) {
             // make sent elements phantom
             for (int i = 0; i < send_count; ++i) send_points_start[i].index = -1;
         }
 
-        // in all receivers indentify phantom elements
-        int recv_n = 0;
-        int phantom_elements = 0;
-        if (i_am_receiver) {
-            recv_n = send_count / recv_procs + (send_count % recv_procs > 0);
-            part_size += recv_n;
-            phantom_elements = recv_n - sendcounts_buffer[rank];
+        if (can_compensate) {
+            // compensate sent elements
+            const int new_procs_num = procs_num - recv_procs;
+            const long long new_length = 1L * part_size * new_procs_num - send_count;
+            const int new_part_size = new_length / new_procs_num + (new_length % new_procs_num > 0);
+            const int new_middle_proc_points = part_size - send_count;
+            const int to_compensate = new_part_size - new_middle_proc_points;
+            const int compensators = new_procs_num - 1;
+
+            int *recv_counts = sendcounts_buffer;
+            memset(recv_counts, 0, procs_num * sizeof(int));
+            memset(displacements_buffer, 0, procs_num * sizeof(int));
+
+            const int offset = middle_proc + 1;
+            for (int i = 0; i < compensators; ++i) {
+                recv_counts[offset + i] = to_compensate / compensators;
+            }
+
+            for (int i = 0; i < to_compensate % compensators; ++i) {
+                recv_counts[offset + i] += 1;
+            }
+
+            displacements_buffer[offset] = 0;
+            for (int i = 1; i < compensators; ++i) {
+                displacements_buffer[offset + i] =
+                    displacements_buffer[offset + i-1]
+                    + recv_counts[offset + i-1];
+            }
+
+            if (rank == middle_proc) {
+                memmove(points, points + send_count, new_middle_proc_points * sizeof(Point));
+            }
+
+            comm.Gatherv(
+                points + part_size - recv_counts[rank], // from the tail
+                recv_counts[rank], // how many
+                datatype,
+                points + new_middle_proc_points,
+                recv_counts,
+                displacements_buffer,
+                datatype,
+                middle_proc
+            );
+
+            // make redistributed as phantom
+            for (int i = 0; i < recv_counts[rank]; ++i){
+                points[part_size - 1 - i].index = -1;
+            }
+
+            if (rank >= middle_proc) {
+                part_size = new_part_size;
+            }
         }
 
-        for (int i = 0; i < phantom_elements; ++i) {
-            points[part_size-1-i].index = -1;
+        if (i_am_receiver) {
+            part_size = receiver_part_size;
         }
     }
 
