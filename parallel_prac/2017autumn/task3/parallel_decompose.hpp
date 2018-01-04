@@ -5,6 +5,8 @@
 
 //represents a 'vector' with given length (i.e. size) and ptr
 typedef struct _points_domain_t {
+    int k;
+    int procs_num;
     int size;
     point_domain_t *info;
 } points_domain_t;
@@ -76,6 +78,8 @@ points_domain_t _parallel_decompose(
     points_domain_t points_domain;
 
     if (procs_num == 1 || k == 1) { // there is no more processes or domains
+        points_domain.k = k;
+        points_domain.procs_num = procs_num;
         points_domain.size = part_size;
         points_domain.info = new point_domain_t[part_size];
         decompose(points, points_domain.info, part_size, k, lowest_domain);

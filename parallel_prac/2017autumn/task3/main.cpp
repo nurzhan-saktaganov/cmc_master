@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
+#include <map>
 #include <mpi.h>
 
 #include "parallel_decompose.hpp"
@@ -11,6 +12,15 @@ enum errors {
 };
 
 using namespace std;
+
+long long count_cuts(MPI::Intracomm &comm, points_domain_t points_domain, const int n1, const int n2);
+int index_to_i(const long long index, const int n2);
+int index_to_j(const long long index, const int n2);
+long long coord_to_index(const int n1, const int n2, const int i, const int j);
+long long left_neighbour(long long index, const int n1, const int n2);
+long long right_neighbour(long long index, const int n1, const int n2);
+long long top_neighbour(long long index, const int n1, const int n2);
+long long bottom_neighbour(long long index, const int n1, const int n2);
 
 void fill_points(
     const int part_size,
@@ -28,6 +38,7 @@ void write_report(
     const int n1,
     const int n2,
     const int k,
+    long long cuts,
     double duration);
 
 int get_width(int number);
@@ -78,13 +89,17 @@ int main(int argc, char *argv[])
 
     datatype.Free();
 
-    write_report(MPI::COMM_WORLD, filename, points_domain, part_size, n1, n2, k, duration);
+    // There is no more need on points.
+    delete [] points;
+
+    // Works only for p < k.
+    long long cuts = count_cuts(MPI::COMM_WORLD, points_domain, n1, n2);
+
+    write_report(MPI::COMM_WORLD, filename, points_domain, part_size, n1, n2, k, cuts, duration);
 
     // release resources
     points_domain.size = 0;
     delete [] points_domain.info;
-
-    delete [] points;
 
     MPI::Finalize();
 
@@ -131,6 +146,7 @@ void write_report(
     const int n1,
     const int n2,
     const int k,
+    long long cuts,
     double duration)
 {
     const int procs_num = comm.Get_size();
@@ -203,7 +219,7 @@ void write_report(
         // print time and TODO bisected edges count
         for (int i = 0; i < procs_num; ++i) skip_lines += procs_points[i];
         file.Seek(1.0L * line_width * skip_lines, MPI::SEEK_SET);
-        sprintf(buffer, "%lf\n", duration);
+        sprintf(buffer, "%lld\n%lf\n", cuts, duration);
         file.Write(buffer, strlen(buffer), MPI::CHAR);
     }
 
@@ -222,4 +238,96 @@ int get_width(int number)
         width++;
     }
     return width;
+}
+
+long long count_cuts(MPI::Intracomm &comm, points_domain_t points_domain, const int n1, const int n2)
+{
+    std::map<int, std::map<long long, bool> > has_node; // for each domain store indexes
+
+    // only when k > p;
+
+    for(int i = 0; i < points_domain.size; ++i) {
+        Point p = points_domain.info[i].point;
+        if (p.index == -1) continue;
+        int domain = points_domain.info[i].domain;
+        has_node[domain][p.index] = true;
+    }
+
+    long long cuts = 0;
+    for(int i = 0; i < points_domain.size; ++i) {
+        Point p = points_domain.info[i].point;
+        if (p.index == -1) continue;
+        int domain = points_domain.info[i].domain;
+
+        long long neighbour;
+
+        neighbour = left_neighbour(p.index, n1, n2);
+        if (neighbour != -1 && !has_node[domain][neighbour]) {
+            ++cuts;
+        }
+
+        neighbour = right_neighbour(p.index, n1, n2);
+        if (neighbour != -1 && !has_node[domain][neighbour]) {
+            ++cuts;
+        }
+
+        neighbour = top_neighbour(p.index, n1, n2);
+        if (neighbour != -1 && !has_node[domain][neighbour]) {
+            ++cuts;
+        }
+
+        neighbour = bottom_neighbour(p.index, n1, n2);
+        if (neighbour != -1 && !has_node[domain][neighbour]) {
+            ++cuts;
+        }
+    }
+
+    long long total_cuts;
+    comm.Allreduce(&cuts, &total_cuts, 1, MPI::LONG_LONG, MPI::SUM);
+
+    return total_cuts / 2;
+}
+
+int index_to_i(const long long index, const int n2)
+{
+    return index / n2;
+}
+
+int index_to_j(const long long index, const int n2)
+{
+    return index % n2;
+}
+
+long long coord_to_index(const int n1, const int n2, const int i, const int j)
+{
+    if (i < 0 || n1 <= i || j < 0 || n2 <= j) return -1;
+    return 1L * i * n2 + j;
+}
+
+long long left_neighbour(long long index, const int n1, const int n2)
+{
+    const int i = index_to_i(index, n2);
+    const int j = index_to_j(index, n2);
+    return coord_to_index(n1, n2, i, j - 1);
+}
+
+long long right_neighbour(long long index, const int n1, const int n2)
+{
+    const int i = index_to_i(index, n2);
+    const int j = index_to_j(index, n2);
+    return coord_to_index(n1, n2, i, j + 1);
+}
+
+long long top_neighbour(long long index, const int n1, const int n2)
+{
+    const int i = index_to_i(index, n2);
+    const int j = index_to_j(index, n2);
+    return coord_to_index(n1, n2, i - 1, j);
+}
+
+long long bottom_neighbour(long long index, const int n1, const int n2)
+{
+    const int i = index_to_i(index, n2);
+    const int j = index_to_j(index, n2);
+    return coord_to_index(n1, n2, i + 1, j);
 }
