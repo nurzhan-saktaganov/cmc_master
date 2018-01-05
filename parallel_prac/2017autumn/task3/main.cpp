@@ -4,6 +4,7 @@
 #include <map>
 #include <mpi.h>
 
+#include "decompose.hpp"
 #include "parallel_decompose.hpp"
 
 enum errors {
@@ -75,12 +76,25 @@ int main(int argc, char *argv[])
     MPI::Datatype datatype = Point::datatype();
     datatype.Commit();
 
+    points_domain_t points_domain;
+
+    if (procs_num == 1) {
+        points_domain.k = k;
+        points_domain.procs_num = procs_num;
+        points_domain.size = part_size;
+        points_domain.info = new point_domain_t[part_size];
+    }
+
     MPI::COMM_WORLD.Barrier();
     double duration = -MPI::Wtime();
 
-    points_domain_t points_domain = parallel_decompose(
-            MPI::COMM_WORLD, datatype, points, part_size, k, 0
-        );
+    if (procs_num == 1) {
+        decompose(points, points_domain.info, part_size, k, 0);
+    } else {
+        points_domain = parallel_decompose(
+                MPI::COMM_WORLD, datatype, points, part_size, k, 0
+            );
+    }
 
     MPI::COMM_WORLD.Barrier();
     duration += MPI::Wtime();
